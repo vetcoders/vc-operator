@@ -837,10 +837,26 @@ async fn status_file_writer_persists_snapshot() {
     let mut updated = base.clone();
     updated.queue_depth = 3;
     tx.send(updated.clone()).ok();
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
-    let text = fs::read_to_string(&path).expect("status file");
-    assert!(text.contains("\"queue_depth\": 3"));
+    // The writer task runs concurrently — under a loaded workspace test run
+    // (cargo test --workspace executes hundreds of tokio tests in parallel)
+    // a fixed `sleep(50ms)` is not enough to guarantee the post-send write
+    // has flushed. Poll the file with a bounded timeout instead, matching the
+    // pattern used by `mux_transport_roundtrip_with_loctree_mcp` below.
+    let mut text = String::new();
+    for _ in 0..200 {
+        if let Ok(contents) = fs::read_to_string(&path)
+            && contents.contains("\"queue_depth\": 3")
+        {
+            text = contents;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert!(
+        text.contains("\"queue_depth\": 3"),
+        "status file never picked up the updated queue_depth: got {text:?}"
+    );
     assert!(text.contains("\"child_pid\": 99"));
 
     handle.abort();
