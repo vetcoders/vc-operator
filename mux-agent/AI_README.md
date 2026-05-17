@@ -67,8 +67,7 @@ src/
 ├── lib.rs                  # Library entry point, public API re-exports
 ├── main.rs                 # CLI entry (feature: cli)
 ├── config.rs               # MuxConfig, ServerConfig, ResolvedParams, CliOptions trait
-├── state.rs                # MuxState, StatusSnapshot, DaemonStatus, error helpers
-├── common.rs               # Shared host-format helpers (extraction in progress; see GUIDELINES)
+├── state.rs                # MuxState, StatusSnapshot, ServerStatus, error helpers
 ├── scan.rs                 # Host discovery + rewire (feature: cli)
 ├── mux_gen.rs              # Safe wizard path: emit ~/.config/mux/{mcp.json, mcp.toml, config.toml}
 ├── danger.rs               # [DANGER] wizard path: backup-first JSON/TOML rewrite of host configs with rollback
@@ -264,7 +263,8 @@ CI (`.github/workflows/ci.yml`) runs with `--no-default-features` (tray off) so 
 | `CliOptions`                      | `config.rs`                           | Trait for generic CLI parameter handling                      |
 | `ResolvedParams`                  | `config.rs`                           | Merged CLI + config parameters                                |
 | `MuxState`                        | `state.rs`                            | Runtime state (clients, pending, cache)                       |
-| `StatusSnapshot` / `DaemonStatus` | `state.rs`                            | JSON status output                                            |
+| `StatusSnapshot`                  | `state.rs`                            | Per-server status row (in-process)                            |
+| `DaemonStatus`                    | `runtime/status.rs`                   | Wire payload returned by the daemon status socket             |
 | `run_mux` / `run_mux_internal`    | `runtime/mod.rs`                      | Main mux loop (internal vs external shutdown)                 |
 | `server_manager`                  | `runtime/server.rs`                   | Child process lifecycle + restart backoff                     |
 | `handle_client`                   | `runtime/client.rs`                   | Per-client connection handler                                 |

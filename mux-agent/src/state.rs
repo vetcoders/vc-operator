@@ -24,15 +24,12 @@ use crate::multi::StatusLevel;
 
 pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DaemonStatus {
-    pub servers: Vec<StatusSnapshot>,
-    pub version: String,
-    pub uptime: String,
-    pub server_count: usize,
-    pub running_count: usize,
-    pub error_count: usize,
-}
+// `DaemonStatus` (wire status payload) lives in `runtime/status.rs`. An older
+// twin struct sat here under the same name with a different schema
+// (`Vec<StatusSnapshot>` vs the canonical `Vec<MultiServerStatus>`) and
+// silently drifted because nothing imported it. Do not reintroduce it: the
+// daemon status socket and the public re-export in `lib.rs` both bind to
+// `runtime::status::DaemonStatus`. Edit there, not here.
 
 #[cfg_attr(not(feature = "tray"), allow(dead_code))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
