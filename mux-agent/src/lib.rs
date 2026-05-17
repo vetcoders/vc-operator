@@ -59,7 +59,6 @@ use tokio_util::sync::CancellationToken;
 // Public modules
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub mod common;
 pub mod config;
 pub mod multi;
 pub mod runtime;
@@ -91,22 +90,10 @@ pub mod multi_tui;
 pub use config::{CliOptions, Config, ResolvedParams, ServerConfig, resolve_params_multi};
 pub use runtime::{
     DEFAULT_STATUS_SOCKET, DaemonStatus, HeartbeatConfig, MAX_PENDING, MAX_QUEUE, ServerRef,
-    StatusState, health_check, query_status, run_mux, run_proxy, run_status_listener,
+    StatusState, health_check, print_status_table, query_status, run_mux, run_proxy,
+    run_status_listener,
 };
 pub use state::{MuxState, ServerStatus, StatusSnapshot};
-pub fn print_status_table(_status: &DaemonStatus) {
-    // Placeholder
-}
-
-pub async fn restart_single_service(_config: &Config, _name: &str) -> Result<()> {
-    // Placeholder
-    Ok(())
-}
-
-pub async fn status_all_servers(_config: &Config) -> Result<()> {
-    // Placeholder
-    Ok(())
-}
 
 pub use multi::{
     ManagedServer, MultiServerStatus, ServerCommand, StatusLevel, TuiMuxState, format_uptime,
