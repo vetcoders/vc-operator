@@ -1,5 +1,5 @@
 use crate::ipc::command::{MuxControlCommand, MuxControlResponse, NonMuxEntry, VerifyResult};
-use crate::ipc::server::MuxControlContext;
+use crate::ipc::context::MuxControlContext;
 use crate::scan::scan_hosts;
 use std::sync::Arc;
 

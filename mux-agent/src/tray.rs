@@ -306,7 +306,6 @@ mod tests {
             queue_depth: 0,
             child_pid: None,
             max_request_bytes: 1_048_576,
-            health_status: ServerStatus::Starting,
             heartbeat: crate::state::HeartbeatMetrics::default(),
             uptime_ms: 0,
             in_backoff: false,

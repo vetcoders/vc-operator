@@ -230,7 +230,7 @@ pub async fn run_mux_internal_with_status(
         event_tx: Some(event_tx.clone()),
     })));
 
-    let ipc_ctx = Arc::new(crate::ipc::server::MuxControlContext::new(
+    let ipc_ctx = Arc::new(crate::ipc::MuxControlContext::new(
         state.clone(),
         Some(event_tx),
     ));
