@@ -18,8 +18,8 @@ use tokio::sync::{Mutex, Semaphore, watch};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 
-use crate::multi::{MultiServerStatus, StatusLevel, format_uptime};
-use crate::state::{MuxState, ServerStatus, StatusSnapshot};
+use crate::multi::{MultiServerStatus, format_uptime};
+use crate::state::{MuxState, ServerStatus, StatusLevel, StatusSnapshot};
 
 /// Write a status snapshot to a file atomically.
 pub async fn write_status_file(path: &Path, snapshot: &StatusSnapshot) -> Result<()> {

@@ -810,7 +810,7 @@ async fn status_file_writer_persists_snapshot() {
         name: "svc".into(),
         server_status: ServerStatus::Starting,
         status_text: "Starting".into(),
-        level: crate::multi::StatusLevel::Ok,
+        level: crate::state::StatusLevel::Ok,
         restarts: 0,
         connected_clients: 0,
         active_clients: 0,

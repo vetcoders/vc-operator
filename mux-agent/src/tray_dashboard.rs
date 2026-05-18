@@ -14,7 +14,7 @@ use tray_icon::{
     menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu},
 };
 
-use crate::multi::StatusLevel;
+use crate::state::StatusLevel;
 use crate::runtime::{DEFAULT_STATUS_SOCKET, DaemonStatus, query_status};
 use crate::tray::LoadedIcon;
 

@@ -18,6 +18,21 @@ pub enum ServerStatus {
     Backoff,
 }
 
+/// Status level for display in dashboards.
+///
+/// Lives here next to `ServerStatus` because both are wire-format status
+/// primitives consumed by `StatusSnapshot` and `MultiServerStatus`. It used
+/// to live in `multi.rs`, which forced a `multi.rs ↔ state.rs` import cycle
+/// (state needed `StatusLevel`; multi needed `MuxState`). Keeping it in the
+/// state hub breaks the cycle without changing the public re-export surface.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum StatusLevel {
+    Ok,
+    Warn,
+    Error,
+    Lazy,
+}
+
 // An older twin `pub type HealthStatus = ServerStatus;` lived here and was
 // surfaced as `StatusSnapshot.health_status` — always populated as a clone of
 // `server_status`. The consumer (`tui-agent/src/mux.rs::MuxStatusSnapshot`)
@@ -26,8 +41,6 @@ pub enum ServerStatus {
 // suggesting a second health signal that did not exist. The only remaining
 // `HealthStatus` in this crate is `wizard::types::HealthStatus`, a distinct
 // service-config enum with its own variant set.
-
-use crate::multi::StatusLevel;
 
 pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 

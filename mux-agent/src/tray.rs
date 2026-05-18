@@ -262,7 +262,7 @@ pub fn load_icon_from_file(path: &Path) -> Option<LoadedIcon> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::multi::StatusLevel;
+    use crate::state::StatusLevel;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn tmp_path(name: &str) -> PathBuf {
