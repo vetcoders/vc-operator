@@ -393,7 +393,16 @@ fn extract_cmd_and_args(args: &str) -> (String, Vec<String>) {
 // Health check
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub fn check_health(config: &ServerConfig) -> HealthStatus {
+/// Wizard-time service-config classifier. Synchronously tries to connect to the
+/// configured socket and maps the outcome onto `HealthStatus`.
+///
+/// Renamed from `check_health` to disambiguate from the public async
+/// `crate::check_health(socket) -> Result<()>` daemon-probe API. Both used to
+/// be called `check_health` inside the same crate, which made the two distinct
+/// surfaces indistinguishable at a glance — one async-runtime probe with
+/// `Result<()>` failure semantics, one sync wizard classifier that folds the
+/// outcome into the `HealthStatus { Unknown | Healthy | Unhealthy }` enum.
+pub fn probe_service_health(config: &ServerConfig) -> HealthStatus {
     let socket_path = match &config.socket {
         Some(s) => expand_path(s),
         None => return HealthStatus::Unknown,

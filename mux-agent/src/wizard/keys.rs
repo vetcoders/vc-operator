@@ -6,7 +6,8 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use super::services::{
-    append_default_services, build_services_from_scans, check_health, enrich_running_state,
+    append_default_services, build_services_from_scans, enrich_running_state,
+    probe_service_health,
 };
 use super::types::{
     AppState, PendingAction, SourceEntry, SourceStatus, Strategy, SummaryAction, TrayChoice,
@@ -139,7 +140,7 @@ fn advance_to_step2(app: &mut AppState) {
     // Cheap health checks on entries with sockets, so STEP 2 has badge data
     // available if a future view turns the column on.
     for svc in &mut services {
-        svc.health = check_health(&svc.config);
+        svc.health = probe_service_health(&svc.config);
     }
 
     app.services = services;
