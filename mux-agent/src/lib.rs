@@ -95,9 +95,7 @@ pub use runtime::{
 };
 pub use state::{MuxState, ServerStatus, StatusLevel, StatusSnapshot};
 
-pub use multi::{
-    ManagedServer, MultiServerStatus, ServerCommand, TuiMuxState, format_uptime,
-};
+pub use multi::{ManagedServer, MultiServerStatus, ServerCommand, TuiMuxState, format_uptime};
 #[cfg(feature = "cli")]
 pub use multi_tui::run_multi_tui;
 

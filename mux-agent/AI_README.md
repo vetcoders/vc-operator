@@ -1,7 +1,7 @@
 # rust-mux – AI-facing Overview
 
 > **Version:** 0.4.0
-> **Last updated:** 2026-05-05
+> **Last updated:** 2026-05-18
 > **Per-repo doctrine:** see `AGENTS.md` (canonical, agent-agnostic)
 
 This document provides a concise technical overview for AI agents working with the rust-mux codebase.
@@ -87,14 +87,13 @@ src/
 │   ├── heartbeat.rs        # Heartbeat loop, child health check
 │   ├── status.rs           # write_status_file, spawn_status_writer, daemon status socket
 │   └── tests.rs            # Runtime tests (incl. ignored mux_transport_roundtrip_with_loctree_mcp)
-└── wizard/                 # Three-step TUI wizard (feature: cli)
-    ├── mod.rs              # run_wizard, run_tui (safe + [DANGER] paths)
-    ├── types.rs            # WizardStep, ServiceEntry, ClientEntry, FormState
-    ├── services.rs         # load_all_services, detect_running_mcp_servers
-    ├── clients.rs          # detect_clients (Codex, Cursor, VSCode, Claude, JetBrains, Gemini, Junie, ~/.ai, ~/.agents)
-    ├── ui.rs               # draw_ui, draw_service_list, draw_client_list
-    ├── keys.rs             # handle_key, sync_form_to_service
-    └── persist.rs          # persist_all, rewire_selected_clients
+└── wizard/                 # Five-step TUI wizard (feature: cli)
+    ├── mod.rs              # run_wizard (CLI entry), run_tui loop, dry-run path
+    ├── types.rs            # WizardStep, Strategy, AppState, SourceEntry, ServiceEntry, HealthStatus
+    ├── services.rs         # build_services_from_scans, enrich_running_state, append_default_services, probe_service_health
+    ├── ui.rs               # draw_ui dispatcher + per-step draw_stepN_* helpers
+    ├── keys.rs             # handle_key dispatcher + per-step handle_stepN helpers
+    └── persist.rs          # run_unified_generate, run_per_client_generate, run_danger_auto_configure, start_tray_daemon
 ```
 
 ## Library API
@@ -213,18 +212,42 @@ Written atomically to `status_file` on every state change:
 ```json
 {
   "service_name": "memory",
+  "name": "memory",
   "server_status": "Running",
+  "status_text": "Running",
+  "level": "Ok",
   "restarts": 0,
   "connected_clients": 2,
   "active_clients": 1,
+  "max_active_clients": 5,
   "pending_requests": 0,
+  "cached_initialize": true,
+  "initializing": false,
+  "last_reset": null,
   "queue_depth": 0,
   "child_pid": 12345,
-  "cached_initialize": true,
-  "heartbeat_status": "Healthy",
-  "last_heartbeat_ms": 12345
+  "max_request_bytes": 1048576,
+  "heartbeat_latency_ms": 12,
+  "heartbeat": {
+    "enabled": true,
+    "latency_ms": 12,
+    "last_heartbeat_ms": 1747584320000,
+    "avg_response_ms": 14,
+    "total_success": 1024,
+    "total_failures": 0,
+    "consecutive_failures": 0
+  },
+  "uptime_ms": 1234567,
+  "in_backoff": false,
+  "restart_backoff_ms": 1000,
+  "restart_backoff_max_ms": 30000,
+  "max_restarts": 5
 }
 ```
+
+Canonical source: `StatusSnapshot` in `state.rs` + `snapshot_for_state` builder.
+`heartbeat` is the nested `HeartbeatMetrics` struct; `heartbeat_latency_ms` is the
+top-level convenience mirror of `heartbeat.latency_ms`.
 
 The multi-service daemon additionally serves a status socket; query it via `rust-mux daemon-status` (or `make daemon-status`).
 
@@ -271,10 +294,10 @@ CI (`.github/workflows/ci.yml`) runs with `--no-default-features` (tray off) so 
 | `heartbeat_loop`                  | `runtime/heartbeat.rs`                | Child health probe                                            |
 | `run_proxy`                       | `runtime/proxy.rs`                    | STDIO↔socket bridge (also `rust-mux-proxy` binary)           |
 | `run_wizard`                      | `wizard/mod.rs`                       | TUI entry point (feature: cli)                                |
-| `WizardStep`                      | `wizard/types.rs`                     | Step enum (Server / Client / Confirmation)                    |
+| `WizardStep`                      | `wizard/types.rs`                     | Five-step enum (DiscoverySources / ServerReview / StrategyChoice / SummaryConfirm / ResultAndTray) |
 | `discover_hosts`                  | `scan.rs`                             | Find host config files (feature: cli)                         |
-| `emit_mux_config`                 | `mux_gen.rs`                          | Safe wizard path: write `~/.config/mux/*`                     |
-| `apply_with_backup`               | `danger.rs`                           | `[DANGER]` wizard path: backup → preview → rewrite → rollback |
+| `build_mux_outputs` / `write_mux_outputs` | `mux_gen.rs`                  | Safe wizard path: build then atomically write `~/.config/mux/*` |
+| `plan_danger_rewrite` / `execute_plan` / `rollback_commands` | `danger.rs` | `[DANGER]` wizard path: plan → preview → execute → rollback   |
 
 ## Notes for AI Agents
 

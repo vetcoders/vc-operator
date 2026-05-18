@@ -84,9 +84,7 @@ pub fn run_with_ipc(socket_path: PathBuf) -> Result<()> {
         }
         match status_rx.try_recv() {
             Ok(status) => {
-                menu::update_status_label(
-                    &status.menu_label(menu::current_service_count()),
-                );
+                menu::update_status_label(&status.menu_label(menu::current_service_count()));
                 let _ = tray_icon.set_tooltip(Some(status.tooltip()));
                 if let Ok(icon) = icons::icon_for(status)
                     && let Err(error) = tray_icon.set_icon(Some(icon))

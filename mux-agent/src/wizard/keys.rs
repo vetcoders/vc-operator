@@ -6,8 +6,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use super::services::{
-    append_default_services, build_services_from_scans, enrich_running_state,
-    probe_service_health,
+    append_default_services, build_services_from_scans, enrich_running_state, probe_service_health,
 };
 use super::types::{
     AppState, PendingAction, SourceEntry, SourceStatus, Strategy, SummaryAction, TrayChoice,

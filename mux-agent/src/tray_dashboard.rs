@@ -14,8 +14,8 @@ use tray_icon::{
     menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu},
 };
 
-use crate::state::StatusLevel;
 use crate::runtime::{DEFAULT_STATUS_SOCKET, DaemonStatus, query_status};
+use crate::state::StatusLevel;
 use crate::tray::LoadedIcon;
 
 /// Run the tray dashboard on the current thread (required for macOS main thread).
