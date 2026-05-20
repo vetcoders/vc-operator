@@ -1,4 +1,8 @@
 use crate::app::{App, AppTab, LaunchFocus};
+use crate::mission_control::{
+    ActionPriority, ActionQueueItem, ActionQueueKind, ActiveDispatch, AgentStatsRow, DataQuality,
+    FailureEntry, FleetHealthSignal, FleetHealthStatus, SkillStatsRow, WaveSegment, WaveState,
+};
 use crate::state::RunKind;
 use ratatui::prelude::*;
 use ratatui::style::{Color, Modifier, Style};
@@ -87,6 +91,7 @@ fn draw_body(frame: &mut Frame, area: Rect, app: &App) {
         AppTab::Monitor => draw_monitor(frame, area, app),
         AppTab::Dispatch => draw_dispatch(frame, area, app),
         AppTab::Controls => draw_controls(frame, area, app),
+        AppTab::MissionControl => draw_mission_control(frame, area, app),
     }
 }
 
@@ -489,6 +494,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
         (AppTab::Controls, _) => {
             "Controls: ↑/↓ action  ←/→ run selection  Enter open  d jump here from Monitor"
         }
+        (AppTab::MissionControl, _) => "Mission Control: ↑/↓ panel focus  r refresh  Tab next tab",
     };
     frame.render_widget(
         Paragraph::new(nav_hint).style(Style::default().fg(Color::Cyan)),
@@ -645,6 +651,508 @@ fn draw_deep_controls(frame: &mut Frame, area: Rect, app: &App) {
         )
         .wrap(Wrap { trim: false });
     frame.render_widget(panel, area);
+}
+
+fn draw_mission_control(frame: &mut Frame, area: Rect, app: &App) {
+    let mission = &app.mission_control;
+    let focus = app.mission_focus;
+
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(5),
+            Constraint::Min(8),
+            Constraint::Length(6),
+        ])
+        .split(area);
+
+    draw_stat_strip(
+        frame,
+        rows[0],
+        [
+            (
+                "Active dispatches",
+                vec![
+                    format!("{} running", mission.active_dispatches.len()),
+                    format!("{} stalled queue items", mission.action_queue.len()),
+                ],
+                Color::Green,
+            ),
+            (
+                "History (30d)",
+                vec![
+                    format!(
+                        "{} meta.json scanned",
+                        mission.data_quality.scanned_meta_files
+                    ),
+                    if mission.data_quality.capped {
+                        "scan capped (load-shed)".to_string()
+                    } else {
+                        format!(
+                            "{} agents · {} skills",
+                            mission.agent_stats.len(),
+                            mission.skill_stats.len()
+                        )
+                    },
+                ],
+                Color::Cyan,
+            ),
+            (
+                "Mission posture",
+                vec![
+                    format!(
+                        "model parity {}/{}",
+                        mission.data_quality.missing_model,
+                        mission.data_quality.scanned_meta_files.max(1)
+                    ),
+                    format!(
+                        "duration parity {}/{}",
+                        mission.data_quality.missing_duration,
+                        mission.data_quality.scanned_meta_files.max(1)
+                    ),
+                ],
+                Color::Magenta,
+            ),
+        ],
+    );
+
+    // Grid layout: 7 panels arranged as 3 rows × (varied columns) per
+    // PLAN_23 §4 mock-up:
+    //  ┌ active  │ wave-atlas ┐
+    //  ├ per-agent           ┤
+    //  ┌ per-skill │ fleet   ┐
+    //  ┌ failures  │ action  ┐
+    let body = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Ratio(1, 3),
+            Constraint::Ratio(1, 3),
+            Constraint::Ratio(1, 3),
+        ])
+        .split(rows[1]);
+
+    let top = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(body[0]);
+    draw_mc_active_dispatches(frame, top[0], &mission.active_dispatches, focus == 0);
+    draw_mc_wave_atlas(frame, top[1], &mission.wave_atlas, focus == 1);
+
+    let middle = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+        .split(body[1]);
+    draw_mc_agent_stats(frame, middle[0], &mission.agent_stats, focus == 2);
+    draw_mc_skill_stats(frame, middle[1], &mission.skill_stats, focus == 3);
+
+    let bottom = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(34),
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+        ])
+        .split(body[2]);
+    draw_mc_fleet_health(frame, bottom[0], &mission.fleet_health, focus == 4);
+    draw_mc_failure_board(frame, bottom[1], &mission.failures, focus == 5);
+    draw_mc_action_queue(frame, bottom[2], &mission.action_queue, focus == 6);
+
+    draw_mc_quality_footer(frame, rows[2], &mission.data_quality, &mission.generated_at);
+}
+
+fn draw_mc_active_dispatches(
+    frame: &mut Frame,
+    area: Rect,
+    items: &[ActiveDispatch],
+    focused: bool,
+) {
+    let title = format!(" Active dispatches ({}) ", items.len());
+    let block = panel_block(&title, focused, Color::Green);
+    let lines: Vec<Line> = if items.is_empty() {
+        vec![
+            Line::from(Span::styled(
+                "no live dispatches",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(""),
+            Line::from("Launch a worker from the Dispatch tab to populate this panel."),
+        ]
+    } else {
+        items
+            .iter()
+            .flat_map(|dispatch| {
+                let header = Line::from(vec![
+                    Span::styled(
+                        format!("▶ {} ", dispatch.run_id),
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw(format!("{} / {}", dispatch.agent, dispatch.skill)),
+                ]);
+                let mut detail = format!("  age {} · {}", dispatch.age_label, dispatch.eta_label);
+                if let Some(wave) = dispatch.wave.as_deref() {
+                    detail.push_str(&format!(" · wave {wave}"));
+                }
+                vec![header, Line::from(detail)]
+            })
+            .collect()
+    };
+    let para = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
+fn draw_mc_wave_atlas(frame: &mut Frame, area: Rect, segments: &[WaveSegment], focused: bool) {
+    let title = format!(" Wave atlas ({}) ", segments.len());
+    let block = panel_block(&title, focused, Color::Cyan);
+    let lines: Vec<Line> = if segments.is_empty() {
+        vec![
+            Line::from(Span::styled(
+                "no waves in the last 30d",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(""),
+            Line::from("Waves emerge from prompt_id groups in meta.json."),
+        ]
+    } else {
+        segments
+            .iter()
+            .map(|segment| {
+                let glyph = segment.latest_state.glyph();
+                let color = match segment.latest_state {
+                    WaveState::Completed => Color::Green,
+                    WaveState::InProgress => Color::Yellow,
+                    WaveState::Failed => Color::Red,
+                    WaveState::Pending => Color::DarkGray,
+                };
+                Line::from(vec![
+                    Span::styled(format!("{glyph} "), Style::default().fg(color)),
+                    Span::styled(
+                        format!("{:<22}", truncate(&segment.wave_id, 22)),
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw(format!(
+                        " {}/{}  ✓{} ✗{} ⏳{}",
+                        segment.completed,
+                        segment.total,
+                        segment.completed,
+                        segment.failed,
+                        segment.active
+                    )),
+                ])
+            })
+            .collect()
+    };
+    let para = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
+fn draw_mc_agent_stats(frame: &mut Frame, area: Rect, rows: &[AgentStatsRow], focused: bool) {
+    let title = format!(" Per-agent stats (30d, {} agents) ", rows.len());
+    let block = panel_block(&title, focused, Color::Yellow);
+    let lines: Vec<Line> = if rows.is_empty() {
+        vec![Line::from(Span::styled(
+            "no agent activity in window",
+            Style::default().fg(Color::DarkGray),
+        ))]
+    } else {
+        let mut out = Vec::with_capacity(rows.len() + 1);
+        out.push(Line::from(Span::styled(
+            "agent      runs   ✓    ✗   ⌀dur     model%",
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )));
+        for row in rows {
+            let avg = row
+                .avg_duration_s
+                .map(format_duration_seconds)
+                .unwrap_or_else(|| "  —  ".to_string());
+            let model_pct = (row.model_known_rate * 100.0).round() as i32;
+            let success_pct = (row.success_rate * 100.0).round() as i32;
+            out.push(Line::from(format!(
+                "{:<9} {:>4} {:>4} {:>4}  {:>6}  {:>4}%",
+                truncate(&row.agent, 9),
+                row.total_runs,
+                row.completed,
+                row.failed,
+                avg,
+                model_pct,
+            )));
+            let _ = success_pct;
+        }
+        out
+    };
+    let para = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
+fn draw_mc_skill_stats(frame: &mut Frame, area: Rect, rows: &[SkillStatsRow], focused: bool) {
+    let title = format!(" Per-skill stats ({}) ", rows.len());
+    let block = panel_block(&title, focused, Color::Blue);
+    let lines: Vec<Line> = if rows.is_empty() {
+        vec![Line::from(Span::styled(
+            "no skill invocations in window",
+            Style::default().fg(Color::DarkGray),
+        ))]
+    } else {
+        let mut out = Vec::with_capacity(rows.len() + 1);
+        out.push(Line::from(Span::styled(
+            "skill         inv   ✓    ✗   ⌀dur",
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )));
+        for row in rows {
+            let avg = row
+                .avg_duration_s
+                .map(format_duration_seconds)
+                .unwrap_or_else(|| "  —  ".to_string());
+            let quiet_marker = if row.invocations <= 2 { " ⚠" } else { "" };
+            out.push(Line::from(format!(
+                "{:<12} {:>4} {:>4} {:>4} {:>6}{}",
+                truncate(&row.skill, 12),
+                row.invocations,
+                row.completed,
+                row.failed,
+                avg,
+                quiet_marker,
+            )));
+        }
+        out
+    };
+    let para = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
+fn draw_mc_fleet_health(
+    frame: &mut Frame,
+    area: Rect,
+    signals: &[FleetHealthSignal],
+    focused: bool,
+) {
+    let title = format!(" Fleet health ({}) ", signals.len());
+    let block = panel_block(&title, focused, Color::Magenta);
+    let lines: Vec<Line> = if signals.is_empty() {
+        vec![Line::from(Span::styled(
+            "fleet not probed",
+            Style::default().fg(Color::DarkGray),
+        ))]
+    } else {
+        signals
+            .iter()
+            .map(|signal| {
+                let color = match signal.status {
+                    FleetHealthStatus::Ok => Color::Green,
+                    FleetHealthStatus::Warn => Color::Yellow,
+                    FleetHealthStatus::Blocked => Color::Red,
+                    FleetHealthStatus::Unknown => Color::Gray,
+                };
+                Line::from(vec![
+                    Span::styled(
+                        format!("{} ", signal.status.marker()),
+                        Style::default().fg(color).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{:<16}", truncate(&signal.label, 16)),
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        truncate(&signal.detail, 40).to_string(),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ])
+            })
+            .collect()
+    };
+    let para = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
+fn draw_mc_failure_board(frame: &mut Frame, area: Rect, entries: &[FailureEntry], focused: bool) {
+    let title = format!(" Failure board 24h ({}) ", entries.len());
+    let block = panel_block(&title, focused, Color::Red);
+    let lines: Vec<Line> = if entries.is_empty() {
+        vec![Line::from(Span::styled(
+            "no failures in window",
+            Style::default().fg(Color::DarkGray),
+        ))]
+    } else {
+        entries
+            .iter()
+            .flat_map(|entry| {
+                vec![
+                    Line::from(vec![
+                        Span::styled(
+                            format!("✗ {} ", entry.run_id),
+                            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::raw(format!("{} / {}", entry.agent, entry.skill)),
+                    ]),
+                    Line::from(Span::styled(
+                        format!("  {} · {}", entry.reason, entry.age_label),
+                        Style::default().fg(Color::DarkGray),
+                    )),
+                ]
+            })
+            .collect()
+    };
+    let para = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
+fn draw_mc_action_queue(frame: &mut Frame, area: Rect, items: &[ActionQueueItem], focused: bool) {
+    let title = format!(" Operator action queue ({}) ", items.len());
+    let block = panel_block(&title, focused, Color::White);
+    let lines: Vec<Line> = if items.is_empty() {
+        vec![Line::from(Span::styled(
+            "nothing to press",
+            Style::default().fg(Color::DarkGray),
+        ))]
+    } else {
+        items
+            .iter()
+            .map(|item| {
+                let priority_color = match item.priority {
+                    ActionPriority::Critical => Color::Red,
+                    ActionPriority::High => Color::Yellow,
+                    ActionPriority::Normal => Color::Cyan,
+                };
+                let kind_label = match item.kind {
+                    ActionQueueKind::StalledRun => "stall",
+                    ActionQueueKind::Failure => "fail",
+                    ActionQueueKind::Polarize => "polarize",
+                    ActionQueueKind::ReportReady => "report",
+                };
+                Line::from(vec![
+                    Span::styled(
+                        format!("{} ", item.priority.marker()),
+                        Style::default()
+                            .fg(priority_color)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("[{kind_label}] "),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::raw(truncate(&item.summary, 60).to_string()),
+                ])
+            })
+            .collect()
+    };
+    let para = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
+fn draw_mc_quality_footer(
+    frame: &mut Frame,
+    area: Rect,
+    quality: &DataQuality,
+    generated_at: &str,
+) {
+    let root_label = quality
+        .artifact_root
+        .as_ref()
+        .map(|root| root.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "unset".to_string());
+    let mut lines = vec![
+        Line::from(vec![
+            Span::styled(
+                "artifact root: ",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(root_label),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                "generated at:  ",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(generated_at.to_string()),
+        ]),
+    ];
+    if !quality.artifact_root_present {
+        lines.push(Line::from(Span::styled(
+            "artifact root missing — only live runs feed this dashboard",
+            Style::default().fg(Color::Yellow),
+        )));
+    }
+    if quality.capped {
+        lines.push(Line::from(Span::styled(
+            "meta scan capped — older history may not be folded",
+            Style::default().fg(Color::Yellow),
+        )));
+    }
+    if quality.parse_failures > 0 {
+        lines.push(Line::from(Span::styled(
+            format!(
+                "{} meta.json parse failures skipped",
+                quality.parse_failures
+            ),
+            Style::default().fg(Color::Yellow),
+        )));
+    }
+    let para = Paragraph::new(lines)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Mission Control receipt "),
+        )
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
+fn panel_block(title: &str, focused: bool, accent: Color) -> Block<'_> {
+    let style = if focused {
+        Style::default().fg(accent).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(accent)
+    };
+    Block::default()
+        .borders(Borders::ALL)
+        .border_style(style)
+        .title(Span::styled(
+            format!(" {} ", title.trim()),
+            Style::default().fg(accent).add_modifier(Modifier::BOLD),
+        ))
+}
+
+fn truncate(value: &str, max: usize) -> String {
+    if value.chars().count() <= max {
+        value.to_string()
+    } else {
+        let mut out: String = value.chars().take(max.saturating_sub(1)).collect();
+        out.push('…');
+        out
+    }
+}
+
+fn format_duration_seconds(seconds: f64) -> String {
+    if seconds < 60.0 {
+        format!("{:.0}s", seconds)
+    } else if seconds < 3600.0 {
+        format!("{:.1}m", seconds / 60.0)
+    } else {
+        format!("{:.1}h", seconds / 3600.0)
+    }
 }
 
 fn draw_stat_strip(frame: &mut Frame, area: Rect, cards: [(&str, Vec<String>, Color); 3]) {
@@ -944,6 +1452,9 @@ mod tests {
             artifact_lines: Vec::new(),
             mux_summaries: Vec::new(),
             polarize_intents: Vec::new(),
+            mission_control: crate::mission_control::MissionControlState::default(),
+            mission_focus: 0,
+            mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
         }
     }
 

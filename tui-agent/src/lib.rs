@@ -1,6 +1,7 @@
 pub mod app;
 pub mod config;
 pub mod launch;
+pub mod mission_control;
 pub mod mux;
 pub mod polarize;
 pub mod skills_catalog;
@@ -26,6 +27,11 @@ use std::time::{Duration, Instant};
 pub use app::{App, AppTab, DeepAction, DispatchFocus, LaunchFocus, QueueScope};
 pub use config::{AppConfig, CliOptions, build_config, parse_args};
 pub use launch::{LaunchCommand, LaunchKind};
+pub use mission_control::{
+    ActionPriority, ActionQueueItem, ActionQueueKind, ActiveDispatch, AgentStatsRow, DataQuality,
+    FailureEntry, FleetHealthSignal, FleetHealthStatus, MissionControlState, SkillStatsRow,
+    WaveSegment, WaveState, default_artifact_root,
+};
 pub use polarize::{PolarizeBand, PolarizeIntent};
 pub use skills_catalog::{SkillAgent, SkillEntry, SkillPayload, SkillPayloadKind};
 
@@ -205,11 +211,13 @@ fn handle_key(app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
                 AppTab::Monitor => app.move_selection(-1),
                 AppTab::Dispatch => app.move_dispatch_selection(-1),
                 AppTab::Controls => app.move_deep_selection(-1),
+                AppTab::MissionControl => app.move_mission_focus(-1),
             },
             KeyCode::Down | KeyCode::Char('j') => match app.active_tab() {
                 AppTab::Monitor => app.move_selection(1),
                 AppTab::Dispatch => app.move_dispatch_selection(1),
                 AppTab::Controls => app.move_deep_selection(1),
+                AppTab::MissionControl => app.move_mission_focus(1),
             },
             KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 app.clear_search();
@@ -218,11 +226,13 @@ fn handle_key(app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
                 AppTab::Monitor => {}
                 AppTab::Dispatch => app.adjust_dispatch_selection(-1),
                 AppTab::Controls => app.move_selection(-1),
+                AppTab::MissionControl => app.move_mission_focus(-1),
             },
             KeyCode::Right | KeyCode::Char('l') => match app.active_tab() {
                 AppTab::Monitor => {}
                 AppTab::Dispatch => app.adjust_dispatch_selection(1),
                 AppTab::Controls => app.move_selection(1),
+                AppTab::MissionControl => app.move_mission_focus(1),
             },
             KeyCode::Char('1') => app.set_launch_kind(LaunchKind::Workflow),
             KeyCode::Char('2') => app.set_launch_kind(LaunchKind::Research),
@@ -272,6 +282,20 @@ fn handle_key(app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
                 }
                 AppTab::Controls => {
                     run_selected_deep_control(app)?;
+                }
+                AppTab::MissionControl => {
+                    // Mission Control is a read-only situational-awareness
+                    // surface. Enter on a focused panel jumps the operator
+                    // to the surface that owns the action: Controls (for
+                    // action-queue items, failures, and stalls) or stays
+                    // on the dashboard for stats-only panels.
+                    let focus = app.mission_focus;
+                    if focus == 6 && !app.mission_control.action_queue.is_empty() {
+                        app.set_active_tab(AppTab::Controls);
+                        app.append_status(
+                            "Mission Control → Controls: pick an action from the deck",
+                        );
+                    }
                 }
             },
             KeyCode::Char('d') => {
@@ -731,6 +755,9 @@ mod tests {
             artifact_lines: Vec::new(),
             mux_summaries: Vec::new(),
             polarize_intents: Vec::new(),
+            mission_control: crate::mission_control::MissionControlState::default(),
+            mission_focus: 0,
+            mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
         }
     }
 

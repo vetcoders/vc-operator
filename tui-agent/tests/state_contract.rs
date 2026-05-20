@@ -604,6 +604,9 @@ fn mux_health_deep_actions_surface_per_known_service() {
         artifact_lines: Vec::new(),
         mux_summaries: Vec::new(),
         polarize_intents: Vec::new(),
+        mission_control: vibecrafted_operator::mission_control::MissionControlState::default(),
+        mission_focus: 0,
+        mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
     };
 
     // No mux summaries → only per-run actions. Existing surface preserved.
@@ -739,6 +742,9 @@ fn mux_status_lines_render_healthy_and_attention_headers() {
         artifact_lines: Vec::new(),
         mux_summaries: Vec::new(),
         polarize_intents: Vec::new(),
+        mission_control: vibecrafted_operator::mission_control::MissionControlState::default(),
+        mission_focus: 0,
+        mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
     };
 
     // No mux services → empty render, never a misleading "0 healthy" header.
@@ -916,6 +922,9 @@ fn deep_controls_expose_attach_resume_and_artifacts() {
         artifact_lines: Vec::new(),
         mux_summaries: Vec::new(),
         polarize_intents: Vec::new(),
+        mission_control: vibecrafted_operator::mission_control::MissionControlState::default(),
+        mission_focus: 0,
+        mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
     };
 
     let actions = app.deep_actions();
@@ -998,6 +1007,9 @@ fn native_artifact_viewer_reads_files_and_clipboard_payload_prefers_resume_comma
         artifact_lines: Vec::new(),
         mux_summaries: Vec::new(),
         polarize_intents: Vec::new(),
+        mission_control: vibecrafted_operator::mission_control::MissionControlState::default(),
+        mission_focus: 0,
+        mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
     };
 
     assert_eq!(
@@ -1045,6 +1057,9 @@ fn empty_state_detail_lines_offer_human_quick_start() {
         artifact_lines: Vec::new(),
         mux_summaries: Vec::new(),
         polarize_intents: Vec::new(),
+        mission_control: vibecrafted_operator::mission_control::MissionControlState::default(),
+        mission_focus: 0,
+        mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
     };
 
     let lines = app.detail_lines();
@@ -1088,6 +1103,9 @@ fn prompt_lines_include_human_kind_copy_and_command_preview() {
         artifact_lines: Vec::new(),
         mux_summaries: Vec::new(),
         polarize_intents: Vec::new(),
+        mission_control: vibecrafted_operator::mission_control::MissionControlState::default(),
+        mission_focus: 0,
+        mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
     };
 
     let lines = app.prompt_lines();
@@ -1134,10 +1152,13 @@ fn tab_navigation_wraps_and_dispatch_focus_tracks_selected_field() {
         artifact_lines: Vec::new(),
         mux_summaries: Vec::new(),
         polarize_intents: Vec::new(),
+        mission_control: vibecrafted_operator::mission_control::MissionControlState::default(),
+        mission_focus: 0,
+        mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
     };
 
     app.previous_tab();
-    assert_eq!(app.active_tab(), AppTab::Controls);
+    assert_eq!(app.active_tab(), AppTab::MissionControl);
 
     app.next_tab();
     assert_eq!(app.active_tab(), AppTab::Monitor);
@@ -1208,6 +1229,9 @@ fn tab_labels_surface_monitor_dispatch_and_controls_context() {
         artifact_lines: Vec::new(),
         mux_summaries: Vec::new(),
         polarize_intents: Vec::new(),
+        mission_control: vibecrafted_operator::mission_control::MissionControlState::default(),
+        mission_focus: 0,
+        mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
     };
 
     let labels = app.tab_labels();
@@ -1314,6 +1338,9 @@ fn changing_launch_kind_reorients_the_operator_into_dispatch() {
         artifact_lines: Vec::new(),
         mux_summaries: Vec::new(),
         polarize_intents: Vec::new(),
+        mission_control: vibecrafted_operator::mission_control::MissionControlState::default(),
+        mission_focus: 0,
+        mission_artifact_root: std::path::PathBuf::from("/tmp/vc-op-mission-test"),
     };
 
     app.set_launch_kind(LaunchKind::Review);
@@ -1322,4 +1349,241 @@ fn changing_launch_kind_reorients_the_operator_into_dispatch() {
     assert_eq!(app.dispatch_focus(), DispatchFocus::Kind);
     assert_eq!(app.focus, LaunchFocus::Browse);
     assert!(app.launch_prompt.contains("Review"));
+}
+
+/// `AppTab` contract — Mission Control is a first-class fourth tab and
+/// must be reachable through the standard Tab/Shift+Tab rotation, with a
+/// stable index and label. This locks PLAN_23 Wave A acceptance.
+#[test]
+fn mission_control_tab_is_addressable_and_reachable_via_rotation() {
+    assert_eq!(AppTab::TITLES.len(), 4);
+    assert_eq!(AppTab::MissionControl.label(), "Mission Control");
+    assert_eq!(AppTab::MissionControl.index(), 3);
+    assert_eq!(AppTab::from_index(3), AppTab::MissionControl);
+    assert_eq!(AppTab::from_index(7), AppTab::MissionControl);
+}
+
+/// Mission Control aggregation over a fixture artifact tree: agent and
+/// skill stats hydrate from `*.meta.json`, the wave atlas groups by
+/// `prompt_id`, and the action queue surfaces the freshly completed
+/// report. Mirror of PLAN_23 §4 acceptance for the seven-panel surface.
+#[test]
+fn mission_control_aggregates_real_meta_json_fixtures() {
+    use vibecrafted_operator::mission_control::{ActionQueueKind, MissionControlState};
+    let dir = tempdir().unwrap();
+    let artifact = dir.path().join("artifacts");
+    let bucket = artifact.join("vetcoders/vc-operator/2026_0519/reports");
+    fs::create_dir_all(&bucket).unwrap();
+
+    fs::write(
+        bucket.join("just-001.meta.json"),
+        r#"{
+            "run_id": "just-001",
+            "agent": "claude",
+            "skill_code": "just",
+            "exit_code": 0,
+            "model": "claude-opus-4-7",
+            "duration_s": 90.0,
+            "completed_at": "2026-05-19T12:30:00Z",
+            "prompt_id": "wave-a",
+            "report": "/tmp/just-001/report.md"
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        bucket.join("just-002.meta.json"),
+        r#"{
+            "run_id": "just-002",
+            "agent": "codex",
+            "skill_code": "marb",
+            "exit_code": 1,
+            "model": "unknown",
+            "completed_at": "2026-05-19T12:45:00Z",
+            "prompt_id": "wave-a"
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        bucket.join("just-003.meta.json"),
+        r#"{
+            "run_id": "just-003",
+            "agent": "claude",
+            "skill_code": "just",
+            "exit_code": 0,
+            "model": "claude-opus-4-7",
+            "duration_s": 45.5,
+            "completed_at": "2026-05-19T12:50:00Z",
+            "prompt_id": "wave-b",
+            "report": "/tmp/just-003/report.md"
+        }"#,
+    )
+    .unwrap();
+
+    let state = ControlPlaneState::empty(dir.path());
+    let now = chrono::DateTime::parse_from_rfc3339("2026-05-19T13:00:00Z")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    let mission = MissionControlState::build_at(&state, &artifact, now);
+
+    // Per-agent stats: claude with 2 runs ✓✓, codex with 1 run ✗.
+    let claude = mission
+        .agent_stats
+        .iter()
+        .find(|row| row.agent == "claude")
+        .expect("claude row present in fixture");
+    assert_eq!(claude.total_runs, 2);
+    assert_eq!(claude.completed, 2);
+    assert!((claude.success_rate - 1.0).abs() < 1e-3);
+    let codex = mission
+        .agent_stats
+        .iter()
+        .find(|row| row.agent == "codex")
+        .expect("codex row present in fixture");
+    assert_eq!(codex.failed, 1);
+
+    // Per-skill stats: `just` invoked twice, `marb` once.
+    let just = mission
+        .skill_stats
+        .iter()
+        .find(|row| row.skill == "just")
+        .expect("just skill row");
+    assert_eq!(just.invocations, 2);
+
+    // Wave atlas: two groups derived from prompt_id.
+    assert!(mission.wave_atlas.iter().any(|seg| seg.wave_id == "wave-a"));
+    assert!(mission.wave_atlas.iter().any(|seg| seg.wave_id == "wave-b"));
+
+    // Failure board: only one failure in the 24h window.
+    assert_eq!(mission.failures.len(), 1);
+    assert_eq!(mission.failures[0].run_id, "just-002");
+
+    // Action queue: at least one ReportReady entry from the recent
+    // completions and one Failure entry from the failed codex run.
+    assert!(
+        mission
+            .action_queue
+            .iter()
+            .any(|item| item.kind == ActionQueueKind::Failure)
+    );
+    assert!(
+        mission
+            .action_queue
+            .iter()
+            .any(|item| item.kind == ActionQueueKind::ReportReady)
+    );
+
+    // Data quality: missing model + duration counters honest.
+    assert_eq!(mission.data_quality.scanned_meta_files, 3);
+    assert_eq!(mission.data_quality.missing_model, 1);
+    assert_eq!(mission.data_quality.missing_duration, 1);
+    assert!(mission.data_quality.artifact_root_present);
+}
+
+/// Failure board windowing: meta entries older than the 24h cutoff must
+/// be excluded from the failure panel even when their exit_code is
+/// non-zero. Mirrors PLAN_23 §4 "Failure board (24h)".
+#[test]
+fn mission_control_failure_board_respects_24h_window() {
+    use vibecrafted_operator::mission_control::MissionControlState;
+    let dir = tempdir().unwrap();
+    let artifact = dir.path().join("artifacts");
+    let bucket = artifact.join("vetcoders/vc-operator/2026_0519/reports");
+    fs::create_dir_all(&bucket).unwrap();
+
+    fs::write(
+        bucket.join("old-fail.meta.json"),
+        r#"{
+            "run_id": "old-fail",
+            "agent": "gemini",
+            "skill_code": "rev",
+            "exit_code": 2,
+            "completed_at": "2026-05-15T08:00:00Z"
+        }"#,
+    )
+    .unwrap();
+    fs::write(
+        bucket.join("fresh-fail.meta.json"),
+        r#"{
+            "run_id": "fresh-fail",
+            "agent": "gemini",
+            "skill_code": "rev",
+            "exit_code": 2,
+            "completed_at": "2026-05-19T11:00:00Z"
+        }"#,
+    )
+    .unwrap();
+
+    let state = ControlPlaneState::empty(dir.path());
+    let now = chrono::DateTime::parse_from_rfc3339("2026-05-19T13:00:00Z")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    let mission = MissionControlState::build_at(&state, &artifact, now);
+
+    assert_eq!(mission.failures.len(), 1);
+    assert_eq!(mission.failures[0].run_id, "fresh-fail");
+}
+
+/// Malformed `*.meta.json` files must be skipped without poisoning the
+/// dashboard, and the count must surface in `data_quality.parse_failures`
+/// so the operator sees the truth instead of a false-success aggregate.
+#[test]
+fn mission_control_skips_malformed_meta_json_without_panic() {
+    use vibecrafted_operator::mission_control::MissionControlState;
+    let dir = tempdir().unwrap();
+    let artifact = dir.path().join("artifacts");
+    let bucket = artifact.join("vetcoders/vc-operator/2026_0519/reports");
+    fs::create_dir_all(&bucket).unwrap();
+    fs::write(
+        bucket.join("ok.meta.json"),
+        r#"{
+        "run_id": "ok-1",
+        "agent": "claude",
+        "skill_code": "just",
+        "exit_code": 0,
+        "completed_at": "2026-05-19T12:30:00Z"
+    }"#,
+    )
+    .unwrap();
+    fs::write(bucket.join("broken.meta.json"), "{this is not json").unwrap();
+
+    let state = ControlPlaneState::empty(dir.path());
+    let now = chrono::DateTime::parse_from_rfc3339("2026-05-19T13:00:00Z")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    let mission = MissionControlState::build_at(&state, &artifact, now);
+
+    assert_eq!(mission.data_quality.scanned_meta_files, 1);
+    assert_eq!(mission.data_quality.parse_failures, 1);
+    assert_eq!(mission.agent_stats.len(), 1);
+}
+
+/// Mission Control panel focus navigation wraps around exactly the
+/// seven panels documented in PLAN_23 §4. Locks the navigation
+/// contract so future panel additions adjust both the constant and
+/// the test together.
+#[tokio::test]
+async fn mission_control_focus_wraps_across_seven_panels() {
+    use vibecrafted_operator::app::MISSION_PANEL_COUNT;
+    assert_eq!(MISSION_PANEL_COUNT, 7);
+
+    let mut app = App::new(AppConfig {
+        state_root: std::path::PathBuf::from("/tmp/vc-op-mission-nav"),
+        command_deck: "/usr/bin/vibecrafted".into(),
+        launch_root: "/tmp/repo".into(),
+        launch_runtime: LaunchRuntime::Terminal,
+        terminal_binary: "zellij".into(),
+        tick_rate: Duration::from_millis(250),
+        no_verify_gate: false,
+    })
+    .unwrap();
+    app.set_active_tab(AppTab::MissionControl);
+    assert_eq!(app.mission_focus, 0);
+    app.move_mission_focus(1);
+    assert_eq!(app.mission_focus, 1);
+    for _ in 0..MISSION_PANEL_COUNT {
+        app.move_mission_focus(1);
+    }
+    assert_eq!(app.mission_focus, 1);
+    app.move_mission_focus(-2);
+    assert_eq!(app.mission_focus, MISSION_PANEL_COUNT - 1);
 }
