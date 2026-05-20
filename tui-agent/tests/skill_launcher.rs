@@ -12,22 +12,32 @@ use vibecrafted_operator::skills_catalog::{
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 
-/// Locate the canonical `vibecrafted/skills/` directory after the
-/// `a2a0a51` extraction split. Resolution order:
-///
-/// 1. `VIBECRAFTED_SKILLS_ROOT` env var (CI / non-standard layouts).
-/// 2. Sibling `vibecrafted/skills/` next to the operator workspace
-///    (current `vc-runtime/{vc-operator, vibecrafted}/` layout).
-/// 3. Legacy `<repo>/skills/` two directories up (pre-extract layout
-///    where the operator lived under `vibecrafted/operator/tui-agent`).
-fn locate_skills_root() -> Option<PathBuf> {
-    // A candidate only counts as the skills root if it actually holds at least
-    // one `vc-*/SKILL.md`. Without this, an empty/placeholder `vibecrafted/skills`
-    // dir would turn the CATALOG drift check into a false failure — the
-    // gate-hygiene guard from 6503a810. The explicit env override is trusted
-    // as-is so an operator can point CI at a deliberately-staged layout.
-    fn holds_vc_skills(dir: &Path) -> bool {
-        fs::read_dir(dir)
+enum SkillRootResolution {
+    Found(PathBuf),
+    Missing(Vec<PathBuf>),
+}
+
+fn skill_root_candidates(manifest_dir: &Path) -> Vec<PathBuf> {
+    std::env::var_os("VIBECRAFTED_SKILLS_ROOT")
+        .map(PathBuf::from)
+        .into_iter()
+        .chain(manifest_dir.parent().map(|root| {
+            root.parent()
+                .map(|workspace| workspace.join("vibecrafted/skills"))
+                .unwrap_or_else(|| root.join("vibecrafted/skills"))
+        }))
+        .chain(
+            manifest_dir
+                .parent()
+                .and_then(Path::parent)
+                .map(|root| root.join("skills")),
+        )
+        .collect()
+}
+
+fn has_skill_entries(path: &Path) -> bool {
+    path.is_dir()
+        && fs::read_dir(path)
             .map(|entries| {
                 entries.filter_map(Result::ok).any(|entry| {
                     entry
@@ -38,74 +48,77 @@ fn locate_skills_root() -> Option<PathBuf> {
                 })
             })
             .unwrap_or(false)
+}
+
+fn resolve_skill_root(manifest_dir: &Path) -> SkillRootResolution {
+    let candidates = skill_root_candidates(manifest_dir);
+    if let Some(path) = candidates.iter().find(|path| has_skill_entries(path)) {
+        SkillRootResolution::Found(path.clone())
+    } else {
+        SkillRootResolution::Missing(candidates)
     }
-    if let Ok(explicit) = std::env::var("VIBECRAFTED_SKILLS_ROOT")
-        && !explicit.trim().is_empty()
-    {
-        let candidate = PathBuf::from(explicit);
-        if candidate.is_dir() {
-            return Some(candidate);
-        }
-    }
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let operator_root = manifest_dir.parent()?;
-    let runtime_root = operator_root.parent()?;
-    let sibling = runtime_root.join("vibecrafted").join("skills");
-    if sibling.is_dir() && holds_vc_skills(&sibling) {
-        return Some(sibling);
-    }
-    let legacy = runtime_root.join("skills");
-    if legacy.is_dir() && holds_vc_skills(&legacy) {
-        return Some(legacy);
-    }
-    None
 }
 
 #[test]
 fn catalog_covers_existing_vibecrafted_skill_directories() {
-    let Some(skill_root) = locate_skills_root() else {
-        eprintln!(
-            "skipping catalog_covers_existing_vibecrafted_skill_directories: no \
-             vibecrafted/skills directory found (set VIBECRAFTED_SKILLS_ROOT to \
-             enable the drift check)"
-        );
-        // The catalog is still a deliverable in this crate; sanity-check the
-        // emphasized entrypoint contract so the skip never hides a regression
-        // in the static surface the test was originally guarding.
-        assert!(
-            CATALOG
+    // The operator workspace is a standalone extraction; first-class skills
+    // live in the vibecrafted skill kit, which is not bundled with this
+    // repo. Resolve the skill source via, in order: VIBECRAFTED_SKILLS_ROOT
+    // env override, a sibling `vibecrafted/skills/` next to the workspace,
+    // or a colocated `skills/` for legacy monorepo checkouts. When none
+    // exist, the integrity contract is verified by checking emphasis only —
+    // CATALOG-vs-filesystem parity becomes a no-op rather than a false
+    // failure in extracted environments.
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    match resolve_skill_root(manifest_dir) {
+        SkillRootResolution::Found(skill_root) => {
+            let mut existing = fs::read_dir(&skill_root)
+                .unwrap_or_else(|err| panic!("failed to read {}: {err}", skill_root.display()))
+                .filter_map(Result::ok)
+                .filter_map(|entry| {
+                    let path = entry.path();
+                    if path.join("SKILL.md").is_file() {
+                        entry.file_name().to_str().map(ToOwned::to_owned)
+                    } else {
+                        None
+                    }
+                })
+                .filter(|name| name.starts_with("vc-"))
+                .collect::<BTreeSet<_>>();
+            existing.remove("foundations");
+            // `vc-operator` is the orchestrator doctrine charter that this
+            // workspace itself implements; it is intentionally not launchable
+            // from the operator UI (recursion / category error) and so does
+            // not appear in CATALOG.
+            existing.remove("vc-operator");
+
+            let catalog = CATALOG
                 .iter()
-                .any(|entry| entry.slug == "vc-polarize" && entry.emphasized()),
-            "vc-polarize must be an emphasized operator entrypoint"
-        );
-        return;
-    };
+                .map(|entry| entry.slug.to_string())
+                .collect::<BTreeSet<_>>();
 
-    let mut existing = fs::read_dir(&skill_root)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", skill_root.display()))
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let path = entry.path();
-            if path.join("SKILL.md").is_file() {
-                entry.file_name().to_str().map(ToOwned::to_owned)
-            } else {
-                None
-            }
-        })
-        .filter(|name| name.starts_with("vc-"))
-        .collect::<BTreeSet<_>>();
-    existing.remove("foundations");
-    // `vc-operator` is the orchestrator doctrine charter that this workspace
-    // itself implements; it is intentionally not launchable from the operator
-    // UI (recursion / category error) and so does not appear in CATALOG.
-    existing.remove("vc-operator");
-
-    let catalog = CATALOG
-        .iter()
-        .map(|entry| entry.slug.to_string())
-        .collect::<BTreeSet<_>>();
-
-    assert_eq!(catalog, existing, "CATALOG drift vs {}", skill_root.display());
+            assert_eq!(
+                catalog,
+                existing,
+                "CATALOG drift vs {}",
+                skill_root.display()
+            );
+        }
+        SkillRootResolution::Missing(candidates) => {
+            assert!(
+                !candidates.is_empty(),
+                "skills-root candidate list is empty"
+            );
+            eprintln!(
+                "standalone skills topology: no skill root found; checked {}",
+                candidates
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+    }
 
     assert!(
         CATALOG
