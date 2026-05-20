@@ -1479,6 +1479,77 @@ fn mission_control_aggregates_real_meta_json_fixtures() {
     assert!(mission.data_quality.artifact_root_present);
 }
 
+#[test]
+fn mission_control_action_queue_includes_polarize_intents_with_band_priority() {
+    use std::path::PathBuf;
+    use vibecrafted_operator::mission_control::{
+        ActionPriority, ActionQueueKind, MissionControlState,
+    };
+    use vibecrafted_operator::polarize::{PolarizeBand, PolarizeIntent};
+
+    let dir = tempdir().unwrap();
+    let artifact = dir.path().join("artifacts");
+    fs::create_dir_all(&artifact).unwrap();
+
+    let state = ControlPlaneState::empty(dir.path());
+    let intents = vec![
+        PolarizeIntent {
+            band: PolarizeBand::Doctrine,
+            score: 13,
+            run_id: "polr-doctrine".to_string(),
+            prism_path: PathBuf::from("/tmp/polarize/polr-doctrine/prism.json"),
+        },
+        PolarizeIntent {
+            band: PolarizeBand::Abort,
+            score: 3,
+            run_id: "polr-abort".to_string(),
+            prism_path: PathBuf::from("/tmp/polarize/polr-abort/prism.json"),
+        },
+        PolarizeIntent {
+            band: PolarizeBand::Pass,
+            score: 10,
+            run_id: "polr-pass".to_string(),
+            prism_path: PathBuf::from("/tmp/polarize/polr-pass/prism.json"),
+        },
+        PolarizeIntent {
+            band: PolarizeBand::Memo,
+            score: 6,
+            run_id: "polr-memo".to_string(),
+            prism_path: PathBuf::from("/tmp/polarize/polr-memo/prism.json"),
+        },
+    ];
+
+    let now = chrono::DateTime::parse_from_rfc3339("2026-05-19T13:00:00Z")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    let mission = MissionControlState::build_at_with_intents(&state, &artifact, &intents, now);
+
+    assert_eq!(mission.action_queue.len(), intents.len());
+    assert_eq!(
+        mission
+            .action_queue
+            .iter()
+            .map(|item| item.priority)
+            .collect::<Vec<_>>(),
+        vec![
+            ActionPriority::Critical,
+            ActionPriority::Critical,
+            ActionPriority::High,
+            ActionPriority::Normal,
+        ]
+    );
+
+    for intent in intents {
+        let item = mission
+            .action_queue
+            .iter()
+            .find(|entry| entry.source_path.as_ref() == Some(&intent.prism_path))
+            .expect("polarize intent must produce action-queue item");
+        assert_eq!(item.kind, ActionQueueKind::Polarize);
+        assert!(item.summary.contains(&intent.run_id));
+    }
+}
+
 /// Failure board windowing: meta entries older than the 24h cutoff must
 /// be excluded from the failure panel even when their exit_code is
 /// non-zero. Mirrors PLAN_23 §4 "Failure board (24h)".
@@ -1586,4 +1657,49 @@ async fn mission_control_focus_wraps_across_seven_panels() {
     assert_eq!(app.mission_focus, 1);
     app.move_mission_focus(-2);
     assert_eq!(app.mission_focus, MISSION_PANEL_COUNT - 1);
+}
+
+#[tokio::test]
+async fn mission_queue_preselects_matching_deep_action_for_controls_handoff() {
+    use vibecrafted_operator::mission_control::{
+        ActionPriority, ActionQueueItem, ActionQueueKind, MissionControlState,
+    };
+    use vibecrafted_operator::polarize::{PolarizeBand, PolarizeIntent};
+
+    let prism_path = std::path::PathBuf::from("/tmp/polarize/just-777/prism.json");
+    let mut app = App::new(AppConfig {
+        state_root: std::path::PathBuf::from("/tmp/vc-op-mission-handoff"),
+        command_deck: "/usr/bin/vibecrafted".into(),
+        launch_root: "/tmp/repo".into(),
+        launch_runtime: LaunchRuntime::Terminal,
+        terminal_binary: "zellij".into(),
+        tick_rate: Duration::from_millis(250),
+        no_verify_gate: false,
+    })
+    .unwrap();
+
+    app.polarize_intents = vec![PolarizeIntent {
+        band: PolarizeBand::Doctrine,
+        score: 14,
+        run_id: "just-777".to_string(),
+        prism_path: prism_path.clone(),
+    }];
+
+    app.mission_control = MissionControlState {
+        action_queue: vec![ActionQueueItem {
+            kind: ActionQueueKind::Polarize,
+            summary: "polarize just-777 (doctrine / score 14)".to_string(),
+            source_path: Some(prism_path),
+            priority: ActionPriority::Critical,
+        }],
+        ..Default::default()
+    };
+
+    app.deep_selected = 5;
+    assert_eq!(
+        app.deep_action_index_for_primary_mission_queue_item(),
+        Some(0)
+    );
+    assert!(app.preselect_controls_from_mission_queue());
+    assert_eq!(app.deep_selected, 0);
 }

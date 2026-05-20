@@ -21,6 +21,24 @@ use std::os::unix::fs::symlink;
 /// 3. Legacy `<repo>/skills/` two directories up (pre-extract layout
 ///    where the operator lived under `vibecrafted/operator/tui-agent`).
 fn locate_skills_root() -> Option<PathBuf> {
+    // A candidate only counts as the skills root if it actually holds at least
+    // one `vc-*/SKILL.md`. Without this, an empty/placeholder `vibecrafted/skills`
+    // dir would turn the CATALOG drift check into a false failure — the
+    // gate-hygiene guard from 6503a810. The explicit env override is trusted
+    // as-is so an operator can point CI at a deliberately-staged layout.
+    fn holds_vc_skills(dir: &Path) -> bool {
+        fs::read_dir(dir)
+            .map(|entries| {
+                entries.filter_map(Result::ok).any(|entry| {
+                    entry
+                        .file_name()
+                        .to_str()
+                        .is_some_and(|name| name.starts_with("vc-"))
+                        && entry.path().join("SKILL.md").is_file()
+                })
+            })
+            .unwrap_or(false)
+    }
     if let Ok(explicit) = std::env::var("VIBECRAFTED_SKILLS_ROOT")
         && !explicit.trim().is_empty()
     {
@@ -33,11 +51,11 @@ fn locate_skills_root() -> Option<PathBuf> {
     let operator_root = manifest_dir.parent()?;
     let runtime_root = operator_root.parent()?;
     let sibling = runtime_root.join("vibecrafted").join("skills");
-    if sibling.is_dir() {
+    if sibling.is_dir() && holds_vc_skills(&sibling) {
         return Some(sibling);
     }
     let legacy = runtime_root.join("skills");
-    if legacy.is_dir() {
+    if legacy.is_dir() && holds_vc_skills(&legacy) {
         return Some(legacy);
     }
     None
@@ -62,6 +80,7 @@ fn catalog_covers_existing_vibecrafted_skill_directories() {
         );
         return;
     };
+
     let mut existing = fs::read_dir(&skill_root)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", skill_root.display()))
         .filter_map(Result::ok)
@@ -76,9 +95,9 @@ fn catalog_covers_existing_vibecrafted_skill_directories() {
         .filter(|name| name.starts_with("vc-"))
         .collect::<BTreeSet<_>>();
     existing.remove("foundations");
-    // `vc-operator` is the host runtime, not a launchable skill from within
-    // itself, so it intentionally never appears in CATALOG. The on-disk
-    // SKILL.md still exists upstream so we must drop it from the comparison.
+    // `vc-operator` is the orchestrator doctrine charter that this workspace
+    // itself implements; it is intentionally not launchable from the operator
+    // UI (recursion / category error) and so does not appear in CATALOG.
     existing.remove("vc-operator");
 
     let catalog = CATALOG
@@ -86,7 +105,8 @@ fn catalog_covers_existing_vibecrafted_skill_directories() {
         .map(|entry| entry.slug.to_string())
         .collect::<BTreeSet<_>>();
 
-    assert_eq!(catalog, existing);
+    assert_eq!(catalog, existing, "CATALOG drift vs {}", skill_root.display());
+
     assert!(
         CATALOG
             .iter()

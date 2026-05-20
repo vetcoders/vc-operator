@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::polarize::{PolarizeBand, PolarizeIntent};
 use crate::state::{ControlPlaneState, RunKind, classify_run};
 
 /// Maximum number of `*.meta.json` files we will fold per refresh. Large
@@ -236,14 +237,33 @@ impl MissionControlState {
     /// owns the `ControlPlaneState` snapshot for live runs and supplies
     /// the artifact root where `*.meta.json` history lives.
     pub fn build(state: &ControlPlaneState, artifact_root: &Path) -> Self {
+        Self::build_with_intents(state, artifact_root, &[])
+    }
+
+    /// Build mission-control state while enriching the action queue with
+    /// current `vc-polarize` intents discovered by the app refresh flow.
+    pub fn build_with_intents(
+        state: &ControlPlaneState,
+        artifact_root: &Path,
+        intents: &[PolarizeIntent],
+    ) -> Self {
         let now = Utc::now();
-        Self::build_at(state, artifact_root, now)
+        Self::build_at_with_intents(state, artifact_root, intents, now)
     }
 
     /// Deterministic build entrypoint that takes the "now" timestamp
     /// explicitly. Tests use this to keep time-based classifications
     /// stable across CI machines.
     pub fn build_at(state: &ControlPlaneState, artifact_root: &Path, now: DateTime<Utc>) -> Self {
+        Self::build_at_with_intents(state, artifact_root, &[], now)
+    }
+
+    pub fn build_at_with_intents(
+        state: &ControlPlaneState,
+        artifact_root: &Path,
+        intents: &[PolarizeIntent],
+        now: DateTime<Utc>,
+    ) -> Self {
         let (meta_records, mut data_quality) = collect_meta_records(artifact_root, now);
         data_quality.artifact_root = Some(artifact_root.to_path_buf());
         data_quality.artifact_root_present = artifact_root.exists();
@@ -254,7 +274,7 @@ impl MissionControlState {
         let skill_stats = skill_stats_from_meta(&meta_records, now);
         let failures = failure_board_from_meta(&meta_records, state, now);
         let fleet_health = fleet_health_from_inputs(state, artifact_root, &data_quality);
-        let action_queue = action_queue_from_inputs(state, &failures, &meta_records, now);
+        let action_queue = action_queue_from_inputs(state, &failures, &meta_records, intents, now);
 
         Self {
             generated_at: now.to_rfc3339(),
@@ -904,6 +924,7 @@ fn action_queue_from_inputs(
     state: &ControlPlaneState,
     failures: &[FailureEntry],
     records: &[MetaRecord],
+    intents: &[PolarizeIntent],
     now: DateTime<Utc>,
 ) -> Vec<ActionQueueItem> {
     let mut items = Vec::new();
@@ -940,6 +961,20 @@ fn action_queue_from_inputs(
         });
     }
 
+    for intent in intents {
+        items.push(ActionQueueItem {
+            kind: ActionQueueKind::Polarize,
+            summary: format!(
+                "polarize {} ({} / score {})",
+                intent.run_id,
+                intent.band.label(),
+                intent.score
+            ),
+            source_path: Some(intent.prism_path.clone()),
+            priority: action_priority_from_polarize_band(intent.band),
+        });
+    }
+
     // Surface freshly completed reports that haven't been touched yet —
     // operators want to know which artifacts are ready to read without
     // grepping the artifact tree. We cap to keep the queue actionable.
@@ -966,6 +1001,14 @@ fn action_queue_from_inputs(
     items.sort_by_key(|item| item.priority);
     items.truncate(12);
     items
+}
+
+fn action_priority_from_polarize_band(band: PolarizeBand) -> ActionPriority {
+    match band {
+        PolarizeBand::Abort | PolarizeBand::Doctrine => ActionPriority::Critical,
+        PolarizeBand::Pass => ActionPriority::High,
+        PolarizeBand::Memo => ActionPriority::Normal,
+    }
 }
 
 fn parse_rfc3339(raw: &str) -> Option<DateTime<Utc>> {

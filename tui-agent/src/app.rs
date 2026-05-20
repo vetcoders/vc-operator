@@ -2,7 +2,7 @@ use crate::config::{AppConfig, path_display};
 use crate::launch::{
     LaunchCommand, LaunchKind, LaunchRequest, LaunchRuntime, build_launch_command,
 };
-use crate::mission_control::{self, MissionControlState};
+use crate::mission_control::{self, ActionQueueItem, ActionQueueKind, MissionControlState};
 use crate::polarize::{PolarizeBand, PolarizeIntent};
 use crate::skills_catalog::{self, SkillAgent, SkillPayload, SkillPayloadKind};
 use crate::state::{ControlPlaneState, RenderedRun, RunKind, render_runs};
@@ -319,7 +319,11 @@ impl App {
     /// `refresh()` so the dashboard surfaces stay live without doing
     /// disk IO inside the draw path.
     pub fn refresh_mission_control(&mut self) {
-        self.mission_control = MissionControlState::build(&self.state, &self.mission_artifact_root);
+        self.mission_control = MissionControlState::build_with_intents(
+            &self.state,
+            &self.mission_artifact_root,
+            &self.polarize_intents,
+        );
         if self.mission_focus >= mission_panel_count() {
             self.mission_focus = mission_panel_count().saturating_sub(1);
         }
@@ -968,6 +972,21 @@ impl App {
         self.deep_actions().get(self.deep_selected).cloned()
     }
 
+    pub fn deep_action_index_for_primary_mission_queue_item(&self) -> Option<usize> {
+        let item = self.mission_control.action_queue.first()?;
+        self.deep_actions()
+            .iter()
+            .position(|action| mission_queue_item_matches_deep_action(item, action))
+    }
+
+    pub fn preselect_controls_from_mission_queue(&mut self) -> bool {
+        if let Some(index) = self.deep_action_index_for_primary_mission_queue_item() {
+            self.deep_selected = index;
+            return true;
+        }
+        false
+    }
+
     pub fn move_deep_selection(&mut self, delta: isize) {
         let len = self.deep_actions().len();
         if len == 0 {
@@ -1138,6 +1157,44 @@ pub const MISSION_PANEL_COUNT: usize = 7;
 
 pub fn mission_panel_count() -> usize {
     MISSION_PANEL_COUNT
+}
+
+fn mission_queue_item_matches_deep_action(item: &ActionQueueItem, action: &DeepAction) -> bool {
+    match (item.kind, action) {
+        (ActionQueueKind::StalledRun, DeepAction::OpenRoot(path)) => {
+            path_match(item.source_path.as_deref(), path)
+        }
+        (ActionQueueKind::Failure | ActionQueueKind::ReportReady, DeepAction::OpenReport(path)) => {
+            path_match(item.source_path.as_deref(), path)
+                || run_id_match(action_queue_run_id(item), path)
+        }
+        (
+            ActionQueueKind::Polarize,
+            DeepAction::PolarizeIntent {
+                run_id, prism_path, ..
+            },
+        ) => {
+            path_match(item.source_path.as_deref(), prism_path)
+                || action_queue_run_id(item) == Some(run_id.as_str())
+        }
+        _ => false,
+    }
+}
+
+fn action_queue_run_id(item: &ActionQueueItem) -> Option<&str> {
+    let mut parts = item.summary.split_whitespace();
+    parts.next()?;
+    parts.next().map(|segment| segment.trim())
+}
+
+fn run_id_match(run_id: Option<&str>, path: &Path) -> bool {
+    run_id
+        .map(|value| path.to_string_lossy().contains(value))
+        .unwrap_or(false)
+}
+
+fn path_match(expected: Option<&Path>, actual: &Path) -> bool {
+    expected == Some(actual)
 }
 
 pub fn default_prompt(kind: LaunchKind) -> String {

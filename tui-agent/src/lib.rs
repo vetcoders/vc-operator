@@ -291,10 +291,17 @@ fn handle_key(app: &mut App, key: KeyEvent) -> anyhow::Result<bool> {
                     // on the dashboard for stats-only panels.
                     let focus = app.mission_focus;
                     if focus == 6 && !app.mission_control.action_queue.is_empty() {
+                        let preselected = app.preselect_controls_from_mission_queue();
                         app.set_active_tab(AppTab::Controls);
-                        app.append_status(
-                            "Mission Control → Controls: pick an action from the deck",
-                        );
+                        if preselected {
+                            app.append_status(
+                                "Mission Control → Controls: preselected most relevant action",
+                            );
+                        } else {
+                            app.append_status(
+                                "Mission Control → Controls: pick an action from the deck",
+                            );
+                        }
                     }
                 }
             },
