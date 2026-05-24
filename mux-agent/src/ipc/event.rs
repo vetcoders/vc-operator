@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -23,5 +25,18 @@ pub enum IpcEvent {
     ClientDrift {
         client: String,
         non_mux_paths: Vec<String>,
+    },
+    SpawnUpdate {
+        run_id: String,
+        agent: String,
+        skill: String,
+        mode: String,
+        state: String,
+        session_id: Option<String>,
+        exit_code: Option<i32>,
+        launcher_pid: Option<u32>,
+        transcript: Option<PathBuf>,
+        report: Option<PathBuf>,
+        ts: String,
     },
 }

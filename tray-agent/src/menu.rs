@@ -12,6 +12,8 @@ use crate::types::MenuIds;
 thread_local! {
     static STATUS_MENU_ITEM: RefCell<Option<MenuItem>> = const { RefCell::new(None) };
     static SERVICE_COUNT_MENU_ITEM: RefCell<Option<MenuItem>> = const { RefCell::new(None) };
+    static RECENT_RUNS_SUBMENU: RefCell<Option<Submenu>> = const { RefCell::new(None) };
+    static RECENT_RUN_ITEMS: RefCell<Vec<MenuItem>> = const { RefCell::new(Vec::new()) };
     static CONTINUE_ONBOARDING_MENU_ITEM: RefCell<Option<MenuItem>> = const { RefCell::new(None) };
 }
 
@@ -41,6 +43,19 @@ pub fn build_menu() -> Result<(Menu, MenuIds)> {
     menu.append(&service_count)?;
     SERVICE_COUNT_MENU_ITEM.with(|cell| *cell.borrow_mut() = Some(service_count));
     menu.append(&PredefinedMenuItem::separator())?;
+
+    let recent_runs_menu = Submenu::new("Recent runs (0)", true);
+    let mut recent_runs = Vec::new();
+    let mut recent_run_items = Vec::new();
+    for index in 0..5 {
+        let item = MenuItem::new(format!("Run {}", index + 1), false, None);
+        recent_runs.push(item.id().clone());
+        recent_runs_menu.append(&item)?;
+        recent_run_items.push(item);
+    }
+    RECENT_RUNS_SUBMENU.with(|cell| *cell.borrow_mut() = Some(recent_runs_menu.clone()));
+    RECENT_RUN_ITEMS.with(|cell| *cell.borrow_mut() = recent_run_items);
+    menu.append(&recent_runs_menu)?;
 
     let mut restart_services = Vec::new();
     let restart_menu = Submenu::new("Restart Service", true);
@@ -111,6 +126,7 @@ pub fn build_menu() -> Result<(Menu, MenuIds)> {
             quit: quit_id,
             restart_services,
             verify_clients,
+            recent_runs,
         },
     ))
 }
@@ -128,6 +144,26 @@ pub fn update_service_count_label() {
     SERVICE_COUNT_MENU_ITEM.with(|cell| {
         if let Some(item) = cell.borrow().as_ref() {
             item.set_text(&label);
+        }
+    });
+}
+
+pub fn update_recent_runs_menu() {
+    let recent = crate::state::recent_spawns();
+    RECENT_RUNS_SUBMENU.with(|cell| {
+        if let Some(menu) = cell.borrow().as_ref() {
+            menu.set_text(format!("Recent runs ({})", recent.len()));
+        }
+    });
+    RECENT_RUN_ITEMS.with(|cell| {
+        for (index, item) in cell.borrow().iter().enumerate() {
+            if let Some(entry) = recent.get(index) {
+                item.set_text(entry.menu_label());
+                item.set_enabled(true);
+            } else {
+                item.set_text("No recent run");
+                item.set_enabled(false);
+            }
         }
     });
 }

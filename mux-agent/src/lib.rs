@@ -69,6 +69,8 @@ pub mod state;
 pub mod danger;
 pub mod ipc;
 #[cfg(feature = "cli")]
+pub mod jsonl_bridge;
+#[cfg(feature = "cli")]
 pub mod mux_gen;
 #[cfg(feature = "cli")]
 pub mod scan;

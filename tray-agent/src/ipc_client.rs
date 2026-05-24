@@ -5,10 +5,10 @@ use anyhow::{Context, Result};
 pub use mux_agent::ipc::{ClientKind, IpcEvent, MuxControlCommand, MuxControlResponse};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
-use tracing::{debug, warn};
+use tracing::warn;
 
-use crate::state::update_tray_status;
-use crate::types::TrayStatus;
+use crate::state::{record_spawn_entry, update_tray_status};
+use crate::types::{SpawnEntry, TrayStatus, TrayUpdate};
 
 pub fn default_socket_path() -> PathBuf {
     std::env::var_os("HOME")
@@ -27,12 +27,6 @@ pub fn client_label(kind: &ClientKind) -> String {
     }
 }
 
-pub enum TrayUpdate {
-    Status(TrayStatus),
-    Alert(String),
-    None,
-}
-
 pub fn from_mux_event(event: IpcEvent) -> TrayUpdate {
     match event {
         IpcEvent::StateChange { .. } => {
@@ -48,6 +42,48 @@ pub fn from_mux_event(event: IpcEvent) -> TrayUpdate {
         IpcEvent::ClientDrift { client, .. } => {
             TrayUpdate::Alert(format!("Drift detected for {}", client))
         }
+        IpcEvent::SpawnUpdate {
+            run_id,
+            agent,
+            skill,
+            mode,
+            state,
+            session_id,
+            exit_code,
+            launcher_pid,
+            transcript,
+            report,
+            ts,
+        } => {
+            let entry = SpawnEntry {
+                run_id: run_id.clone(),
+                agent: agent.clone(),
+                skill,
+                mode,
+                state: state.clone(),
+                session_id,
+                exit_code,
+                launcher_pid,
+                transcript,
+                report,
+                ts,
+            };
+            let active = record_spawn_entry(entry);
+            TrayUpdate::SpawnBadge {
+                active,
+                last_agent: agent,
+                last_state: state,
+                last_run_id: run_id,
+            }
+        }
+    }
+}
+
+pub fn from_mux_response(response: MuxControlResponse) -> TrayUpdate {
+    if let MuxControlResponse::Event(event) = response {
+        from_mux_event(event)
+    } else {
+        TrayUpdate::None
     }
 }
 
@@ -93,18 +129,23 @@ async fn subscribe_once(socket_path: &Path) -> Result<()> {
     let mut lines = BufReader::new(reader).lines();
     while let Some(line) = lines.next_line().await? {
         let response: MuxControlResponse = serde_json::from_str(&line)?;
-        if let MuxControlResponse::Event(event) = response {
-            match from_mux_event(event) {
-                TrayUpdate::Status(status) => {
-                    let _ = update_tray_status(status);
-                }
-                TrayUpdate::Alert(msg) => {
-                    warn!("Tray Alert: {}", msg);
-                }
-                TrayUpdate::None => {} // No-op
+        match from_mux_response(response) {
+            TrayUpdate::Status(status) => {
+                let _ = update_tray_status(status);
             }
-        } else {
-            debug!("mux subscribe response: {response:?}");
+            TrayUpdate::SpawnBadge {
+                active,
+                last_agent,
+                last_state,
+                last_run_id,
+            } => {
+                let _ = update_tray_status(TrayStatus::Spawning { count: active });
+                crate::handlers::notify_spawn_update(&last_agent, &last_state, &last_run_id);
+            }
+            TrayUpdate::Alert(msg) => {
+                warn!("Tray Alert: {}", msg);
+            }
+            TrayUpdate::None => {} // No-op
         }
     }
     anyhow::bail!("mux IPC stream closed")

@@ -34,6 +34,7 @@ fn color(status: TrayStatus) -> (u8, u8, u8) {
         TrayStatus::Routing => (60, 130, 220),
         TrayStatus::Saturated => (255, 165, 0),
         TrayStatus::Restarting => (255, 220, 60),
+        TrayStatus::Spawning { .. } => (80, 210, 210),
         TrayStatus::Failed => (255, 50, 50),
     }
 }
