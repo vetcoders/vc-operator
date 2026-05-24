@@ -1,6 +1,7 @@
 use crate::ipc_client::ClientKind;
 use anyhow::Result;
 use muda::MenuId;
+use std::path::PathBuf;
 use tracing::debug;
 use tray_icon::Icon;
 
@@ -12,6 +13,7 @@ pub enum TrayStatus {
     Routing,
     Saturated,
     Restarting,
+    Spawning { count: u32 },
     Failed,
 }
 
@@ -20,13 +22,14 @@ impl TrayStatus {
         format!("Vibecrafted mux - {}", self.label())
     }
 
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self) -> String {
         match self {
-            Self::Idle => "Idle",
-            Self::Routing => "Routing",
-            Self::Saturated => "Saturated",
-            Self::Restarting => "Restarting",
-            Self::Failed => "Failed",
+            Self::Idle => "Idle".to_string(),
+            Self::Routing => "Routing".to_string(),
+            Self::Saturated => "Saturated".to_string(),
+            Self::Restarting => "Restarting".to_string(),
+            Self::Spawning { count } => format!("Spawning ({count})"),
+            Self::Failed => "Failed".to_string(),
         }
     }
 
@@ -42,8 +45,46 @@ impl TrayStatus {
     }
 }
 
-pub fn silver_label_for_status(status: TrayStatus) -> &'static str {
+pub fn silver_label_for_status(status: TrayStatus) -> String {
     status.label()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpawnEntry {
+    pub run_id: String,
+    pub agent: String,
+    pub skill: String,
+    pub mode: String,
+    pub state: String,
+    pub session_id: Option<String>,
+    pub exit_code: Option<i32>,
+    pub launcher_pid: Option<u32>,
+    pub transcript: Option<PathBuf>,
+    pub report: Option<PathBuf>,
+    pub ts: String,
+}
+
+impl SpawnEntry {
+    pub fn is_active(&self) -> bool {
+        matches!(self.state.as_str(), "launching" | "running")
+    }
+
+    pub fn menu_label(&self) -> String {
+        format!("{} {} {}", self.agent, self.skill, self.state)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TrayUpdate {
+    Status(TrayStatus),
+    SpawnBadge {
+        active: u32,
+        last_agent: String,
+        last_state: String,
+        last_run_id: String,
+    },
+    Alert(String),
+    None,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +95,7 @@ pub enum TrayMenuEvent {
     CopyDiagnostics,
     RestartService(String),
     VerifyClient(ClientKind),
+    OpenRecentRun(String),
     ContinueOnboarding,
     OpenSettings,
     OpenHelp,
@@ -73,6 +115,7 @@ pub struct MenuIds {
     pub quit: MenuId,
     pub restart_services: Vec<(String, MenuId)>,
     pub verify_clients: Vec<(ClientKind, MenuId)>,
+    pub recent_runs: Vec<MenuId>,
 }
 
 impl MenuIds {
@@ -86,5 +129,9 @@ impl MenuIds {
         self.verify_clients
             .iter()
             .find_map(|(kind, item_id)| (item_id == id).then(|| kind.clone()))
+    }
+
+    pub fn resolve_recent_run(&self, id: &MenuId) -> Option<usize> {
+        self.recent_runs.iter().position(|item_id| item_id == id)
     }
 }
