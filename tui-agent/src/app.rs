@@ -451,7 +451,7 @@ impl App {
         let marker_path = archive_dir.join(format!("{}.json", safe_marker_name(&run_id)));
         let marker = serde_json::json!({
             "run_id": run_id,
-            "archived_by": "vc-operator",
+            "archived_by": "vc-tui",
             "archived_at": chrono::Utc::now().to_rfc3339(),
         });
         fs::write(&marker_path, serde_json::to_vec_pretty(&marker)?)?;

@@ -1,6 +1,6 @@
-# Vibecrafted Operator Workspace
+# Vibecrafted TUI Workspace
 
-`vc-operator` is the standalone desktop/operator workspace for Vibecrafted.
+`vc-tui` is the standalone desktop/operator workspace for Vibecrafted.
 It carries the terminal cockpit, MCP multiplexer, tray agent, and macOS shell
 wrapper as one Rust-first product surface.
 
@@ -53,7 +53,7 @@ make dmg-signed
 
 - `vc-mux-daemon`
 - `vc-mux-tray`
-- `vc-operator-tui`
+- `vc-tui`
 
 `make dmg` creates an unsigned local DMG. `make dmg-signed` requires a
 Developer ID Application signing identity in the local keychain and prints the
