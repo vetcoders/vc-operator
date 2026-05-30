@@ -172,6 +172,13 @@ pub const CATALOG: &[SkillEntry] = &[
         accepts: SkillPayloadKind::PromptOrFile,
     },
     SkillEntry {
+        slug: "vc-audit",
+        display: "Audit",
+        one_line: "Spec falsification of a plan",
+        default_agent: SkillAgent::Any,
+        accepts: SkillPayloadKind::PromptOrFile,
+    },
+    SkillEntry {
         slug: "vc-prune",
         display: "Prune",
         one_line: "Repository curation",
@@ -217,6 +224,13 @@ pub const CATALOG: &[SkillEntry] = &[
         slug: "vc-agents",
         display: "Agents",
         one_line: "External agent fleet entry",
+        default_agent: SkillAgent::Any,
+        accepts: SkillPayloadKind::PromptOrFile,
+    },
+    SkillEntry {
+        slug: "vc-skillaunch",
+        display: "Skillaunch",
+        one_line: "Distill a workflow into a skill",
         default_agent: SkillAgent::Any,
         accepts: SkillPayloadKind::PromptOrFile,
     },

@@ -91,6 +91,13 @@ fn catalog_covers_existing_vibecrafted_skill_directories() {
             // from the operator UI (recursion / category error) and so does
             // not appear in CATALOG.
             existing.remove("vc-operator");
+            // Foundation and tool-wrapper skills load with the framework or
+            // wrap a CLI; they are not standalone launchable workflows and so
+            // intentionally do not appear in CATALOG.
+            existing.remove("vc-aicx");
+            existing.remove("vc-loctree");
+            existing.remove("vc-prview");
+            existing.remove("vc-screenscribe");
 
             let catalog = CATALOG
                 .iter()
