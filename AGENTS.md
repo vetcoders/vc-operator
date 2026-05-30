@@ -44,7 +44,9 @@ bez milionów. Continuous backlog closure = warunek wiarygodności tej tezy.
 
 ## Identity
 
-- **Workspace:** standalone `VetCoders/vc-operator` checkout.
+- **Workspace:** standalone `VetCoders/vc-tui` checkout (repo formerly
+  `vc-operator`; renamed to free the `vc-operator` name for the orchestration
+  skill/agent runtime).
 - **Role:** consolidated operator platform workspace for `mux-agent`,
   `tui-agent`, `tray-agent`, and `shell-agent`.
 - **Crate names:** keep existing distribution names stable. `mux-agent/`
