@@ -53,7 +53,7 @@ Estimated effort: 2-4 ED.
 1. Normalize or explicitly document the request ID format boundary between
    `vc_` and `mux-agent`.
 2. Replace any `vc_` caller that shells to or links `vc-mux` with the
-   `rust-mux` IPC/proxy path.
+   `rmcp-mux` IPC/proxy path.
 3. Add a parity smoke that sends initialize plus one normal request through
    the replacement path and verifies response ID restoration.
 4. After operator approval, delete the Zig mux source with `git rm` in the

@@ -271,7 +271,7 @@ fn pre_launch_verify_passes_on_clean_config() {
     unsafe {
         std::env::set_var("HOME", dir.path());
     }
-    let socket_dir = dir.path().join(".rust-mux/ipc");
+    let socket_dir = dir.path().join(".rmcp-mux/ipc");
     std::fs::create_dir_all(&socket_dir).unwrap();
     let socket_path = socket_dir.join("control.sock");
 
@@ -283,8 +283,8 @@ fn pre_launch_verify_passes_on_clean_config() {
             let mut reader = std::io::BufReader::new(&stream);
             let mut line = String::new();
             if reader.read_line(&mut line).is_ok() {
-                let resp = rust_mux::ipc::MuxControlResponse::VerifyResult(
-                    rust_mux::ipc::command::VerifyResult {
+                let resp = rmcp_mux::ipc::MuxControlResponse::VerifyResult(
+                    rmcp_mux::ipc::command::VerifyResult {
                         ok: true,
                         non_mux_servers: vec![],
                     },
@@ -295,7 +295,7 @@ fn pre_launch_verify_passes_on_clean_config() {
         }
     });
 
-    let res = vc_tui::launch::pre_launch_verify(rust_mux::ipc::ClientKind::Codex);
+    let res = vc_tui::launch::pre_launch_verify(rmcp_mux::ipc::ClientKind::Codex);
     assert!(res.is_ok(), "Verify should pass");
 }
 
@@ -306,7 +306,7 @@ fn pre_launch_verify_blocks_dispatch_on_drift() {
     unsafe {
         std::env::set_var("HOME", dir.path());
     }
-    let socket_dir = dir.path().join(".rust-mux/ipc");
+    let socket_dir = dir.path().join(".rmcp-mux/ipc");
     std::fs::create_dir_all(&socket_dir).unwrap();
     let socket_path = socket_dir.join("control.sock");
 
@@ -318,10 +318,10 @@ fn pre_launch_verify_blocks_dispatch_on_drift() {
             let mut reader = std::io::BufReader::new(&stream);
             let mut line = String::new();
             if reader.read_line(&mut line).is_ok() {
-                let resp = rust_mux::ipc::MuxControlResponse::VerifyResult(
-                    rust_mux::ipc::command::VerifyResult {
+                let resp = rmcp_mux::ipc::MuxControlResponse::VerifyResult(
+                    rmcp_mux::ipc::command::VerifyResult {
                         ok: false,
-                        non_mux_servers: vec![rust_mux::ipc::command::NonMuxEntry {
+                        non_mux_servers: vec![rmcp_mux::ipc::command::NonMuxEntry {
                             client: "codex".into(),
                             path: "/tmp/config".into(),
                             line: 12,
@@ -335,7 +335,7 @@ fn pre_launch_verify_blocks_dispatch_on_drift() {
         }
     });
 
-    let res = vc_tui::launch::pre_launch_verify(rust_mux::ipc::ClientKind::Codex);
+    let res = vc_tui::launch::pre_launch_verify(rmcp_mux::ipc::ClientKind::Codex);
     let err = res.expect_err("Should block dispatch");
     match err {
         vc_tui::launch::VerifyHalt::Drift(servers) => {
@@ -354,7 +354,7 @@ fn pre_launch_verify_falls_back_to_polling_when_socket_down() {
         std::env::set_var("HOME", dir.path());
     }
     // Socket doesn't exist. Should return Ok(()).
-    let res = vc_tui::launch::pre_launch_verify(rust_mux::ipc::ClientKind::Codex);
+    let res = vc_tui::launch::pre_launch_verify(rmcp_mux::ipc::ClientKind::Codex);
     assert!(
         res.is_ok(),
         "Verify should fall back gracefully if socket is down"
@@ -363,7 +363,7 @@ fn pre_launch_verify_falls_back_to_polling_when_socket_down() {
 
 #[test]
 fn client_drift_overlay_carries_non_mux_paths_to_fix_action() {
-    let halt = vc_tui::launch::VerifyHalt::Drift(vec![rust_mux::ipc::command::NonMuxEntry {
+    let halt = vc_tui::launch::VerifyHalt::Drift(vec![rmcp_mux::ipc::command::NonMuxEntry {
         client: "claude".into(),
         path: "/Users/x/.claude/config.toml".into(),
         line: 42,

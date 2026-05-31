@@ -10,7 +10,7 @@ The root `Cargo.toml` is a workspace, not an application crate:
 
 | Path | Package | Role |
 |---|---|---|
-| `mux-agent/` | `rust-mux` | MCP transport multiplexer and daemon supervisor |
+| `mux-agent/` | `rmcp-mux` | MCP transport multiplexer and daemon supervisor |
 | `tui-agent/` | `vc-tui` | terminal control cockpit |
 | `tray-agent/` | `tray-agent` | menu bar/tray control surface |
 | `shell-agent/ffi/` | `vibecrafted-shell-ffi` | Rust/UniFFI bridge for the macOS app |
@@ -69,9 +69,9 @@ $VIBECRAFTED_HOME/control_plane/
   events.jsonl
 ```
 
-The mux status panel reads `rust-mux` JSON status snapshots, preferring
+The mux status panel reads `rmcp-mux` JSON status snapshots, preferring
 `VIBECRAFTED_MUX_STATUS_PATHS` before defaulting to
-`~/.rmcp_servers/rust_mux/status.json` and sibling JSON files.
+`~/.rmcp_servers/rmcp_mux/status.json` and sibling JSON files.
 
 ## Repository Rule
 

@@ -11,7 +11,7 @@ repository = "https://github.com/VetCoders/vc-tui"
 documentation = "https://docs.rs/vc-tui"
 
 [dependencies]
-rust-mux = { path = "../mux-agent", package = "rust-mux" }
+rmcp-mux = { path = "../mux-agent", package = "rmcp-mux" }
 tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "time", "sync"] }
 anyhow = "1"
 arboard = "3"

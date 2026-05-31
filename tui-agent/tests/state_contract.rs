@@ -643,10 +643,10 @@ fn mux_health_deep_actions_surface_per_known_service() {
     assert!(services.contains(&"general-memory"));
     assert!(services.contains(&"brave-search"));
 
-    // Label must surface the rust-mux invocation so the operator knows
+    // Label must surface the rmcp-mux invocation so the operator knows
     // exactly what will run when they hit Enter.
     let label = mux_actions[0].label();
-    assert!(label.contains("rust-mux health --service"));
+    assert!(label.contains("rmcp-mux health --service"));
     assert!(label.contains("general-memory") || label.contains("brave-search"));
 
     // MuxHealth is available even with no run selected (the operator should

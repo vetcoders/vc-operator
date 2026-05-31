@@ -11,7 +11,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 uniffi = "0.30"
 thiserror = "1.0"
 anyhow = "1"
-rust-mux = { path = "../../mux-agent" }
+rmcp-mux = { path = "../../mux-agent" }
 tray-agent = { path = "../../tray-agent" }
 vc-tui = { path = "../../tui-agent" }
 tokio = { version = "1", features = ["full"] }

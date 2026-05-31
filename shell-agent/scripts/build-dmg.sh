@@ -28,7 +28,7 @@ fi
 # Step 1: Rust release builds
 echo "Building Rust binaries..."
 cd "$REPO_ROOT"
-cargo build -p rust-mux --release --bin rust-mux
+cargo build -p rmcp-mux --release --bin rmcp-mux
 cargo build -p tray-agent --release --bin vc-mux-tray
 cargo build -p vc-tui --release --bin vc-tui
 cargo build -p vibecrafted-shell-ffi --release
@@ -63,7 +63,7 @@ if [ -z "$APP_PATH" ]; then
     exit 1
 fi
 echo "Found App at $APP_PATH. Embedding Rust binaries..."
-cp "$REPO_ROOT/target/release/rust-mux" "$APP_PATH/Contents/MacOS/vc-mux-daemon"
+cp "$REPO_ROOT/target/release/rmcp-mux" "$APP_PATH/Contents/MacOS/vc-mux-daemon"
 cp "$REPO_ROOT/target/release/vc-mux-tray" "$APP_PATH/Contents/MacOS/vc-mux-tray"
 cp "$REPO_ROOT/target/release/vc-tui" "$APP_PATH/Contents/MacOS/vc-tui"
 chmod +x "$APP_PATH/Contents/MacOS/"*

@@ -50,7 +50,7 @@ bez milionów. Continuous backlog closure = warunek wiarygodności tej tezy.
 - **Role:** consolidated local control-plane workspace for `mux-agent`,
   `tui-agent`, `tray-agent`, and `shell-agent`.
 - **Crate names:** keep existing distribution names stable. `mux-agent/`
-  publishes as `rust-mux`; `tui-agent/` publishes as `vc-tui`.
+  publishes as `rmcp-mux`; `tui-agent/` publishes as `vc-tui`.
 - **Current split:** `mux-agent` owns lifecycle and MCP process supervision;
   `tui-agent` owns the terminal cockpit; `tray-agent` owns the menu bar
   control surface; `shell-agent` owns the macOS `.app` wrapper and UniFFI
@@ -85,7 +85,7 @@ This workspace is a shared live tree. Concurrent edits are expected.
 
 ## Wizard / Config Doctrine
 
-The wizard/config truth lives in `mux-agent`, inherited from `rust-mux`.
+The wizard/config truth lives in `mux-agent`, inherited from `rmcp-mux`.
 Client config files remain the source of truth; running processes can enrich
 status but must not drive discovery by themselves.
 
@@ -130,10 +130,10 @@ Use the canonical brand line only when a sigblock is needed:
 
 ## Anti-Patterns Repo-Specific
 
-- Renaming `rust-mux` or `vc-tui` just because their paths moved.
+- Renaming `rmcp-mux` or `vc-tui` just because their paths moved.
 - Reintroducing a root-level TUI crate after the extraction; `tui-agent/` is the
   single source of truth.
-- Reintroducing deleted rust-mux monoliths such as `src/runtime.rs`.
+- Reintroducing deleted rmcp-mux monoliths such as `src/runtime.rs`.
 - Treating green `cargo check` as shipping readiness without install,
   discoverability, and first-user proof.
 - Deleting historical audit Markdown instead of preserving it under
