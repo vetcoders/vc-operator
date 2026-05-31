@@ -13,22 +13,22 @@ use std::ffi::OsString;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-fn get_message(e: &vibecrafted_operator::LaunchRunError) -> String {
-    if let vibecrafted_operator::LaunchRunError::Exec { message, .. } = e {
+fn get_message(e: &vc_tui::LaunchRunError) -> String {
+    if let vc_tui::LaunchRunError::Exec { message, .. } = e {
         message.clone()
     } else {
         panic!()
     }
 }
-fn get_probe_error(e: &vibecrafted_operator::LaunchRunError) -> Option<String> {
-    if let vibecrafted_operator::LaunchRunError::Exec { probe_error, .. } = e {
+fn get_probe_error(e: &vc_tui::LaunchRunError) -> Option<String> {
+    if let vc_tui::LaunchRunError::Exec { probe_error, .. } = e {
         probe_error.clone()
     } else {
         panic!()
     }
 }
-fn get_probe_error_at_deadline(e: &vibecrafted_operator::LaunchRunError) -> Option<String> {
-    if let vibecrafted_operator::LaunchRunError::Exec {
+fn get_probe_error_at_deadline(e: &vc_tui::LaunchRunError) -> Option<String> {
+    if let vc_tui::LaunchRunError::Exec {
         probe_error_at_deadline,
         ..
     } = e
@@ -42,8 +42,8 @@ fn get_probe_error_at_deadline(e: &vibecrafted_operator::LaunchRunError) -> Opti
 use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
-use vibecrafted_operator::launch::LaunchCommand;
-use vibecrafted_operator::{READINESS_DEADLINE, wait_for_interactive_launch};
+use vc_tui::launch::LaunchCommand;
+use vc_tui::{READINESS_DEADLINE, wait_for_interactive_launch};
 
 static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
 fn env_guard() -> std::sync::MutexGuard<'static, ()> {
@@ -295,7 +295,7 @@ fn pre_launch_verify_passes_on_clean_config() {
         }
     });
 
-    let res = vibecrafted_operator::launch::pre_launch_verify(rust_mux::ipc::ClientKind::Codex);
+    let res = vc_tui::launch::pre_launch_verify(rust_mux::ipc::ClientKind::Codex);
     assert!(res.is_ok(), "Verify should pass");
 }
 
@@ -335,10 +335,10 @@ fn pre_launch_verify_blocks_dispatch_on_drift() {
         }
     });
 
-    let res = vibecrafted_operator::launch::pre_launch_verify(rust_mux::ipc::ClientKind::Codex);
+    let res = vc_tui::launch::pre_launch_verify(rust_mux::ipc::ClientKind::Codex);
     let err = res.expect_err("Should block dispatch");
     match err {
-        vibecrafted_operator::launch::VerifyHalt::Drift(servers) => {
+        vc_tui::launch::VerifyHalt::Drift(servers) => {
             assert_eq!(servers.len(), 1);
             assert_eq!(servers[0].client, "codex");
         }
@@ -354,7 +354,7 @@ fn pre_launch_verify_falls_back_to_polling_when_socket_down() {
         std::env::set_var("HOME", dir.path());
     }
     // Socket doesn't exist. Should return Ok(()).
-    let res = vibecrafted_operator::launch::pre_launch_verify(rust_mux::ipc::ClientKind::Codex);
+    let res = vc_tui::launch::pre_launch_verify(rust_mux::ipc::ClientKind::Codex);
     assert!(
         res.is_ok(),
         "Verify should fall back gracefully if socket is down"
@@ -363,15 +363,13 @@ fn pre_launch_verify_falls_back_to_polling_when_socket_down() {
 
 #[test]
 fn client_drift_overlay_carries_non_mux_paths_to_fix_action() {
-    let halt = vibecrafted_operator::launch::VerifyHalt::Drift(vec![
-        rust_mux::ipc::command::NonMuxEntry {
-            client: "claude".into(),
-            path: "/Users/x/.claude/config.toml".into(),
-            line: 42,
-            server_name: "claude".into(),
-        },
-    ]);
-    let err = vibecrafted_operator::LaunchRunError::ClientDrift(halt);
+    let halt = vc_tui::launch::VerifyHalt::Drift(vec![rust_mux::ipc::command::NonMuxEntry {
+        client: "claude".into(),
+        path: "/Users/x/.claude/config.toml".into(),
+        line: 42,
+        server_name: "claude".into(),
+    }]);
+    let err = vc_tui::LaunchRunError::ClientDrift(halt);
     let details = err.detail_lines("".into());
     assert!(
         details

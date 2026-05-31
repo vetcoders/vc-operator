@@ -110,6 +110,5 @@ cargo run -- --state-root "$VIBECRAFTED_HOME/control_plane"
 #   --root /path/to/repo
 ```
 
-The package is `vibecrafted-operator` (manifest at repo root). Built binaries
-are exposed under both `vibecrafted-operator` and the shorter `vc-tui`
-entrypoint.
+The package is `vc-tui` (manifest at repo root). The supported CLI entrypoint
+is `vc-tui`.

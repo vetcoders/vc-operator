@@ -1,6 +1,6 @@
 # Vibecrafted TUI Workspace
 
-`vc-tui` is the standalone desktop/operator workspace for Vibecrafted.
+`vc-tui` is the standalone desktop/control workspace for Vibecrafted.
 It carries the terminal cockpit, MCP multiplexer, tray agent, and macOS shell
 wrapper as one Rust-first product surface.
 
@@ -11,13 +11,13 @@ The root `Cargo.toml` is a workspace, not an application crate:
 | Path | Package | Role |
 |---|---|---|
 | `mux-agent/` | `rust-mux` | MCP transport multiplexer and daemon supervisor |
-| `tui-agent/` | `vibecrafted-operator` | terminal operator cockpit |
+| `tui-agent/` | `vc-tui` | terminal control cockpit |
 | `tray-agent/` | `tray-agent` | menu bar/tray control surface |
 | `shell-agent/ffi/` | `vibecrafted-shell-ffi` | Rust/UniFFI bridge for the macOS app |
 | `shell-agent/uniffi-bindgen/` | `vibecrafted-uniffi-bindgen` | local binding generator wrapper |
 
 The old root-level TUI crate was intentionally removed after extraction. The
-single source of truth for the operator console is now `tui-agent/`.
+single source of truth for the terminal cockpit is now `tui-agent/`.
 
 ## Quality Gates
 
@@ -59,7 +59,7 @@ make dmg-signed
 Developer ID Application signing identity in the local keychain and prints the
 notarization commands after a signed DMG is created.
 
-## Operator Runtime Contract
+## Runtime State Contract
 
 The TUI reads the shared local control-plane state:
 

@@ -36,22 +36,21 @@ bez milionów. Continuous backlog closure = warunek wiarygodności tej tezy.
 
 <!-- /loctree-doctrine -->
 
-# Vibecrafted Operator Workspace — VetCoders GUIDELINES
+# Vibecrafted TUI Workspace — VetCoders GUIDELINES
 
-> Per-workspace, agent-agnostic instructions for `operator/`. Same rules for
+> Per-workspace, agent-agnostic instructions for `vc-tui/`. Same rules for
 > Claude, Codex, Gemini, Junie, and Qwen. Global doctrine still applies; this
-> file only extends it for the consolidated operator workspace.
+> file only extends it for the consolidated TUI workspace.
 
 ## Identity
 
-- **Workspace:** standalone `VetCoders/vc-tui` checkout (repo formerly
-  `vc-operator`; renamed to free the `vc-operator` name for the orchestration
-  skill/agent runtime).
-- **Role:** consolidated operator platform workspace for `mux-agent`,
+- **Workspace:** standalone `VetCoders/vc-tui` checkout. The `vc-operator`
+  name is reserved for the orchestration skill/agent runtime in the
+  Vibecrafted skill kit.
+- **Role:** consolidated local control-plane workspace for `mux-agent`,
   `tui-agent`, `tray-agent`, and `shell-agent`.
 - **Crate names:** keep existing distribution names stable. `mux-agent/`
-  publishes as `rust-mux`; `tui-agent/` publishes as
-  `vibecrafted-operator`.
+  publishes as `rust-mux`; `tui-agent/` publishes as `vc-tui`.
 - **Current split:** `mux-agent` owns lifecycle and MCP process supervision;
   `tui-agent` owns the terminal cockpit; `tray-agent` owns the menu bar
   control surface; `shell-agent` owns the macOS `.app` wrapper and UniFFI
@@ -81,7 +80,7 @@ This workspace is a shared live tree. Concurrent edits are expected.
 - If a concurrent edit conflicts with the T0 contract, preserve evidence,
   reconcile the file, and report exactly what happened.
 - `.vibecrafted/{plans,reports}` are daily symlinks into
-  `$VIBECRAFTED_HOME/artifacts/VetCoders/vibecrafted-operator/<YYYY_MMDD>/`.
+  `$VIBECRAFTED_HOME/artifacts/VetCoders/vc-tui/<YYYY_MMDD>/`.
   Date-rotation drift is not product code.
 
 ## Wizard / Config Doctrine
@@ -112,7 +111,7 @@ with `make app`; create local or signed DMGs with `make dmg` and
 ## Commit Convention
 
 - Title prefix: `[<agent>/<track>] <description>`.
-- For workspace extraction/stabilization: `[codex/vc-operator] <description>`.
+- For workspace extraction/stabilization: `[codex/vc-tui] <description>`.
 - Multi-file commits need a body with bullet points.
 - Trailer:
 
@@ -131,7 +130,7 @@ Use the canonical brand line only when a sigblock is needed:
 
 ## Anti-Patterns Repo-Specific
 
-- Renaming `rust-mux` or `vibecrafted-operator` just because their paths moved.
+- Renaming `rust-mux` or `vc-tui` just because their paths moved.
 - Reintroducing a root-level TUI crate after the extraction; `tui-agent/` is the
   single source of truth.
 - Reintroducing deleted rust-mux monoliths such as `src/runtime.rs`.

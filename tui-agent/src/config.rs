@@ -199,12 +199,9 @@ fn home_dir() -> String {
 }
 
 fn print_help() {
-    println!("Vibecrafted operator console");
+    println!("Vibecrafted TUI");
     println!();
     println!("Usage:");
-    println!(
-        "  vibecrafted-operator [--state-root <dir>] [--deck <path>] [--root <path>] [--runtime <headless|terminal|visible>] [--tick-ms <ms>]"
-    );
     println!(
         "  vc-tui                [--state-root <dir>] [--deck <path>] [--root <path>] [--runtime <headless|terminal|visible>] [--tick-ms <ms>]"
     );
