@@ -7,7 +7,7 @@ use muda::MenuId;
 use tracing::{debug, warn};
 
 use crate::ipc_client;
-use crate::state::send_menu_event;
+use crate::state::{recent_spawns, send_menu_event};
 use crate::types::{MenuIds, TrayMenuEvent};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +23,7 @@ pub enum MenuRoute {
     Quit,
     RestartService(String),
     VerifyClient(ClientKind),
+    OpenRecentRun(usize),
 }
 
 pub fn resolve_menu_route(event_id: &MenuId, menu_ids: &MenuIds) -> Option<MenuRoute> {
@@ -50,6 +51,8 @@ pub fn resolve_menu_route(event_id: &MenuId, menu_ids: &MenuIds) -> Option<MenuR
         Some(MenuRoute::Quit)
     } else if let Some(name) = menu_ids.resolve_restart_service(event_id) {
         Some(MenuRoute::RestartService(name))
+    } else if let Some(index) = menu_ids.resolve_recent_run(event_id) {
+        Some(MenuRoute::OpenRecentRun(index))
     } else {
         menu_ids
             .resolve_verify_client(event_id)
@@ -63,7 +66,7 @@ pub fn handle_menu_event(event_id: &MenuId, menu_ids: &MenuIds, socket_path: &Pa
             send_menu_event(TrayMenuEvent::ShowMuxDashboard);
             let _ = Command::new("sh")
                 .arg("-lc")
-                .arg("command -v vc-operator-tui >/dev/null 2>&1 && open -a Terminal vc-operator-tui")
+                .arg("command -v vc-tui >/dev/null 2>&1 && open -a Terminal vc-tui")
                 .spawn();
         }
         Some(MenuRoute::OpenLogs) => {
@@ -106,7 +109,24 @@ pub fn handle_menu_event(event_id: &MenuId, menu_ids: &MenuIds, socket_path: &Pa
         Some(MenuRoute::Quit) => send_menu_event(TrayMenuEvent::Quit),
         Some(MenuRoute::RestartService(name)) => restart_service(socket_path, name),
         Some(MenuRoute::VerifyClient(kind)) => verify_client(socket_path, kind),
+        Some(MenuRoute::OpenRecentRun(index)) => open_recent_run(index),
         None => debug!("unknown tray menu event id: {event_id:?}"),
+    }
+}
+
+fn open_recent_run(index: usize) {
+    let Some(entry) = recent_spawns().get(index).cloned() else {
+        notify("Vibecrafted", "Recent run is no longer available");
+        return;
+    };
+    send_menu_event(TrayMenuEvent::OpenRecentRun(entry.run_id.clone()));
+    if let Some(path) = entry.report.or(entry.transcript) {
+        open_path(&path);
+    } else {
+        notify(
+            "Vibecrafted",
+            &format!("{} {} is {}", entry.agent, entry.skill, entry.state),
+        );
     }
 }
 
@@ -170,6 +190,12 @@ fn verify_client(socket_path: &Path, kind: ClientKind) {
     });
 }
 
+pub(crate) fn notify_spawn_update(agent: &str, state: &str, run_id: &str) {
+    if matches!(state, "completed" | "failed") {
+        notify("Vibecrafted run", &format!("{agent} {state}: {run_id}"));
+    }
+}
+
 fn notify(title: &str, message: &str) {
     #[cfg(target_os = "macos")]
     {
@@ -182,8 +208,24 @@ fn notify(title: &str, message: &str) {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        info!("{title}: {message}");
+        #[cfg(feature = "linux-notifications")]
+        if let Err(error) = notify_rust::Notification::new()
+            .summary(title)
+            .body(message)
+            .show()
+        {
+            warn!("failed to show notification: {error}");
+        }
+        tracing::info!("{title}: {message}");
     }
+}
+
+fn open_path(path: &Path) {
+    #[cfg(target_os = "macos")]
+    let command = "open";
+    #[cfg(not(target_os = "macos"))]
+    let command = "xdg-open";
+    let _ = Command::new(command).arg(path).spawn();
 }
 
 #[cfg(target_os = "macos")]
@@ -216,6 +258,7 @@ mod tests {
             quit: MenuId::new("quit"),
             restart_services: vec![("memex".to_string(), MenuId::new("restart-memex"))],
             verify_clients: vec![(ClientKind::Claude, MenuId::new("verify-claude"))],
+            recent_runs: vec![MenuId::new("recent-run-0")],
         };
         assert_eq!(
             resolve_menu_route(&MenuId::new("restart-memex"), &ids),

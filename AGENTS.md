@@ -1,3 +1,41 @@
+<!-- loctree-doctrine: v1 -->
+## **LOCTREE + AICX + VIBECRAFTED — ZŁOTE RUNO**
+
+> **Loctree first, brak doubt. Grep = potwierdzony hak.**
+
+Strukturalna percepcja PRZED każdym sięgnięciem po `grep`/`awk`/`sed`/
+`find`/`Read+offset`. Plus aicx jako historia intencji, vibecrafted jako
+dyscyplina dowodu. Trio jest kanonem.
+
+**Reguła operacyjna:**
+
+- Pierwszy ruch przy każdym strukturalnym pytaniu (kto importuje X,
+  gdzie żyje symbol Y, co pęknie po edycji Z, blast radius, struktura
+  katalogu A) → `loctree-mcp` tool (`context` / `slice` / `impact` /
+  `find` / `focus` / `follow`).
+- Każde sięgnięcie po `grep`/`awk`/`sed`/`find` na rzeczy która
+  **powinna być** loctree-side = **hak**. Zapisz wpis do backlogu
+  (`cuts/loctree-haki.md` per-repo albo operator-managed global).
+- "Doubt" w wyborze tool = anti-pattern. Albo loctree to znajdzie,
+  albo nie umie i wtedy hak + fallback.
+- Sfabrykowane doctriny ("CodeScribe grep-first", "szybciej grepem",
+  "loctree pewnie nie ma") = halucynacja klasy `cutoffflu`. Zakaz.
+- `loctree-mcp` niedostępne? Użyj `loct` cli, ale napisz 'haka'
+   sygnalizującego ten problem.
+
+**Lokalizacja backloga "Loctree fail":**
+
+- Pisz **na końcu** pliku ~/.vibecrafted/loctree/loctree-fail.md
+- Nie twórz na nowo, nie nadpisuj - to plik przeznaczony do appendowania. 
+- Nie musisz czytać istniejących wpisów. Jeśli Twój hak jest zgłoszony
+  kolejny raz to sygnał o jego trafności, a nie powielanie.
+
+**Dlaczego:** Vista (duet weterynarzy × AI agents) to istniejący proof.
+Loctree perfection skaluje ten model do każdego foundera nieprogramisty
+bez milionów. Continuous backlog closure = warunek wiarygodności tej tezy.
+
+<!-- /loctree-doctrine -->
+
 # Vibecrafted Operator Workspace — VetCoders GUIDELINES
 
 > Per-workspace, agent-agnostic instructions for `operator/`. Same rules for
@@ -6,7 +44,9 @@
 
 ## Identity
 
-- **Workspace:** standalone `VetCoders/vc-operator` checkout.
+- **Workspace:** standalone `VetCoders/vc-tui` checkout (repo formerly
+  `vc-operator`; renamed to free the `vc-operator` name for the orchestration
+  skill/agent runtime).
 - **Role:** consolidated operator platform workspace for `mux-agent`,
   `tui-agent`, `tray-agent`, and `shell-agent`.
 - **Crate names:** keep existing distribution names stable. `mux-agent/`
@@ -99,6 +139,27 @@ Use the canonical brand line only when a sigblock is needed:
   discoverability, and first-user proof.
 - Deleting historical audit Markdown instead of preserving it under
   `tui-agent/audits/historical/`.
+
+---
+
+## Agent-Operator doctrine (cross-repo)
+
+This product workspace ships the **operator-runtime** (mux + tui + tray +
+shell). The **agent-side doctrine** for the Agent-Operator role —
+how an agent orchestrates wave-shaped multi-dispatch fleets, the
+"wystarczy wcisnąć guzik" hard-stop schedule, the Iter-3 prompt body
+shape, AGENT FAIRNESS + MODEL PARITY rules, the `docs/plans/HOWTO`
+convention — lives in the `vibecrafted` skill kit:
+
+- Charter: [`../vibecrafted/skills/vc-operator/SKILL.md`](../vibecrafted/skills/vc-operator/SKILL.md)
+- Plan shape (`[ ]` → `[x]`): [`../vibecrafted/skills/vc-operator/EMIL.md`](../vibecrafted/skills/vc-operator/EMIL.md)
+- Dashboard doctrine (the product surface this repo will host): [`../vibecrafted/skills/vc-operator/DASHBOARD.md`](../vibecrafted/skills/vc-operator/DASHBOARD.md)
+- Build plan for the dashboard (Wave-shaped dispatch chain): [`docs/plans/PLAN_23_AGENT_OPERATOR_DASHBOARD.md`](docs/plans/PLAN_23_AGENT_OPERATOR_DASHBOARD.md)
+
+Agents working inside this repo should read `vc-operator/SKILL.md` +
+`EMIL.md` before authoring any plan, dispatch body, or backlog entry.
+The doctrine is repo-agnostic; this repo is the first product surface
+to consume it.
 
 ---
 

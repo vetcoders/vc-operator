@@ -111,5 +111,5 @@ cargo run -- --state-root "$VIBECRAFTED_HOME/control_plane"
 ```
 
 The package is `vibecrafted-operator` (manifest at repo root). Built binaries
-are exposed under both `vibecrafted-operator` and the shorter `vc-operator`
+are exposed under both `vibecrafted-operator` and the shorter `vc-tui`
 entrypoint.

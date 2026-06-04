@@ -32,8 +32,24 @@ pub fn socket_path() -> PathBuf {
         .join("control.sock")
 }
 
+fn vibecrafted_home() -> PathBuf {
+    std::env::var_os("VIBECRAFTED_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".vibecrafted")))
+        .unwrap_or_else(|| PathBuf::from(".vibecrafted"))
+}
+
 pub async fn run_server(ctx: Arc<MuxControlContext>) -> Result<(), String> {
     let path = socket_path();
+
+    if let Some(tx) = ctx.event_tx.clone() {
+        let vibecrafted_home = vibecrafted_home();
+        tokio::spawn(async move {
+            if let Err(error) = crate::jsonl_bridge::run_jsonl_bridge(vibecrafted_home, tx).await {
+                eprintln!("events.jsonl bridge stopped: {error:#}");
+            }
+        });
+    }
 
     // Create parent directory if it doesn't exist
     if let Some(parent) = path.parent() {

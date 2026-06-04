@@ -7,7 +7,7 @@ authors.workspace = true
 description = "Rust operator console for Vibecrafted"
 readme = "README.md"
 homepage = "https://vibecrafted.io"
-repository = "https://github.com/VetCoders/vc-operator"
+repository = "https://github.com/VetCoders/vc-tui"
 documentation = "https://docs.rs/vibecrafted-operator"
 
 [dependencies]

@@ -2,6 +2,7 @@ use crate::config::{AppConfig, path_display};
 use crate::launch::{
     LaunchCommand, LaunchKind, LaunchRequest, LaunchRuntime, build_launch_command,
 };
+use crate::mission_control::{self, ActionQueueItem, ActionQueueKind, MissionControlState};
 use crate::polarize::{PolarizeBand, PolarizeIntent};
 use crate::skills_catalog::{self, SkillAgent, SkillPayload, SkillPayloadKind};
 use crate::state::{ControlPlaneState, RenderedRun, RunKind, render_runs};
@@ -15,16 +16,18 @@ pub enum AppTab {
     Monitor,
     Dispatch,
     Controls,
+    MissionControl,
 }
 
 impl AppTab {
-    pub const TITLES: [&'static str; 3] = ["Monitor", "Dispatch", "Controls"];
+    pub const TITLES: [&'static str; 4] = ["Monitor", "Dispatch", "Controls", "Mission Control"];
 
     pub fn label(self) -> &'static str {
         match self {
             Self::Monitor => "Monitor",
             Self::Dispatch => "Dispatch",
             Self::Controls => "Controls",
+            Self::MissionControl => "Mission Control",
         }
     }
 
@@ -32,7 +35,8 @@ impl AppTab {
         match index % Self::TITLES.len() {
             0 => Self::Monitor,
             1 => Self::Dispatch,
-            _ => Self::Controls,
+            2 => Self::Controls,
+            _ => Self::MissionControl,
         }
     }
 
@@ -41,6 +45,7 @@ impl AppTab {
             Self::Monitor => 0,
             Self::Dispatch => 1,
             Self::Controls => 2,
+            Self::MissionControl => 3,
         }
     }
 }
@@ -236,6 +241,17 @@ pub struct App {
     /// `$VIBECRAFTED_HOME/artifacts/**/polarize/<run_id>/prism.json`.
     /// Refreshed with the run board so draw code remains pure rendering.
     pub polarize_intents: Vec<PolarizeIntent>,
+    /// Cached Mission Control view derived from
+    /// `~/.vibecrafted/artifacts/**/*.meta.json` plus live control-plane
+    /// runs. Built on every `refresh` so the dashboard tab can render
+    /// without doing IO inside the draw path. The artifact root is
+    /// resolved once via `mission_control::default_artifact_root()`.
+    pub mission_control: MissionControlState,
+    /// Selected panel index inside the Mission Control tab (0..7).
+    pub mission_focus: usize,
+    /// Resolved artifact root used by the mission control aggregator;
+    /// kept on the App so tests can swap it explicitly.
+    pub mission_artifact_root: PathBuf,
 }
 
 impl App {
@@ -244,6 +260,7 @@ impl App {
             .unwrap_or_else(|_| ControlPlaneState::empty(&config.state_root));
         let runs = render_runs(&state);
         let launch_runtime = config.launch_runtime;
+        let mission_artifact_root = mission_control::default_artifact_root();
         let mut app = Self {
             config,
             state,
@@ -268,11 +285,15 @@ impl App {
             mux_summaries: Vec::new(),
             mux_subscriber: None,
             polarize_intents: Vec::new(),
+            mission_control: MissionControlState::default(),
+            mission_focus: 0,
+            mission_artifact_root,
         };
         apply_run_filters(&mut app.runs, app.queue_scope, &app.search_query);
         app.sync_selection();
         app.refresh_mux();
         app.refresh_polarize();
+        app.refresh_mission_control();
         let path = rust_mux::ipc::server::socket_path();
         let summaries = std::sync::Arc::new(std::sync::RwLock::new(app.mux_summaries.clone()));
         app.mux_subscriber = Some(crate::mux::MuxSubscriber::start(path, summaries));
@@ -289,6 +310,36 @@ impl App {
         self.sync_selection();
         self.refresh_mux();
         self.refresh_polarize();
+        self.refresh_mission_control();
+    }
+
+    /// Refresh the cached Mission Control view. Cheap on small artifact
+    /// trees (a few directories of `*.meta.json`); bounded on huge
+    /// trees by `mission_control::META_SCAN_CAP`. Called on every
+    /// `refresh()` so the dashboard surfaces stay live without doing
+    /// disk IO inside the draw path.
+    pub fn refresh_mission_control(&mut self) {
+        self.mission_control = MissionControlState::build_with_intents(
+            &self.state,
+            &self.mission_artifact_root,
+            &self.polarize_intents,
+        );
+        if self.mission_focus >= mission_panel_count() {
+            self.mission_focus = mission_panel_count().saturating_sub(1);
+        }
+    }
+
+    pub fn move_mission_focus(&mut self, delta: isize) {
+        let count = mission_panel_count() as isize;
+        if count == 0 {
+            self.mission_focus = 0;
+            return;
+        }
+        let mut index = self.mission_focus as isize + delta;
+        while index < 0 {
+            index += count;
+        }
+        self.mission_focus = (index % count) as usize;
     }
 
     /// Refresh cached rust-mux status snapshots from the discovered
@@ -400,7 +451,7 @@ impl App {
         let marker_path = archive_dir.join(format!("{}.json", safe_marker_name(&run_id)));
         let marker = serde_json::json!({
             "run_id": run_id,
-            "archived_by": "vc-operator",
+            "archived_by": "vc-tui",
             "archived_at": chrono::Utc::now().to_rfc3339(),
         });
         fs::write(&marker_path, serde_json::to_vec_pretty(&marker)?)?;
@@ -817,7 +868,7 @@ impl App {
             .count()
     }
 
-    pub fn tab_labels(&self) -> [String; 3] {
+    pub fn tab_labels(&self) -> [String; 4] {
         let monitor = if self.search_query.is_empty() {
             format!("Monitor {} {}", self.queue_scope.label(), self.runs.len())
         } else {
@@ -829,7 +880,12 @@ impl App {
             self.selected_agent()
         );
         let controls = format!("Controls {}", self.deep_actions().len());
-        [monitor, dispatch, controls]
+        let mission = format!(
+            "Mission {}|{}",
+            self.mission_control.active_dispatches.len(),
+            self.mission_control.action_queue.len()
+        );
+        [monitor, dispatch, controls, mission]
     }
 
     pub fn deep_actions(&self) -> Vec<DeepAction> {
@@ -914,6 +970,21 @@ impl App {
 
     pub fn selected_deep_action(&self) -> Option<DeepAction> {
         self.deep_actions().get(self.deep_selected).cloned()
+    }
+
+    pub fn deep_action_index_for_primary_mission_queue_item(&self) -> Option<usize> {
+        let item = self.mission_control.action_queue.first()?;
+        self.deep_actions()
+            .iter()
+            .position(|action| mission_queue_item_matches_deep_action(item, action))
+    }
+
+    pub fn preselect_controls_from_mission_queue(&mut self) -> bool {
+        if let Some(index) = self.deep_action_index_for_primary_mission_queue_item() {
+            self.deep_selected = index;
+            return true;
+        }
+        false
     }
 
     pub fn move_deep_selection(&mut self, delta: isize) {
@@ -1076,6 +1147,54 @@ fn dispatch_line(selected: bool, content: String) -> String {
     } else {
         format!("  {content}")
     }
+}
+
+/// Number of Mission Control panels rendered in the dashboard. Kept as a
+/// const so navigation wrap-around stays in sync with PLAN_23 §4 (seven
+/// panels: active dispatches, wave atlas, per-agent stats, per-skill
+/// stats, fleet health, failure board, operator action queue).
+pub const MISSION_PANEL_COUNT: usize = 7;
+
+pub fn mission_panel_count() -> usize {
+    MISSION_PANEL_COUNT
+}
+
+fn mission_queue_item_matches_deep_action(item: &ActionQueueItem, action: &DeepAction) -> bool {
+    match (item.kind, action) {
+        (ActionQueueKind::StalledRun, DeepAction::OpenRoot(path)) => {
+            path_match(item.source_path.as_deref(), path)
+        }
+        (ActionQueueKind::Failure | ActionQueueKind::ReportReady, DeepAction::OpenReport(path)) => {
+            path_match(item.source_path.as_deref(), path)
+                || run_id_match(action_queue_run_id(item), path)
+        }
+        (
+            ActionQueueKind::Polarize,
+            DeepAction::PolarizeIntent {
+                run_id, prism_path, ..
+            },
+        ) => {
+            path_match(item.source_path.as_deref(), prism_path)
+                || action_queue_run_id(item) == Some(run_id.as_str())
+        }
+        _ => false,
+    }
+}
+
+fn action_queue_run_id(item: &ActionQueueItem) -> Option<&str> {
+    let mut parts = item.summary.split_whitespace();
+    parts.next()?;
+    parts.next().map(|segment| segment.trim())
+}
+
+fn run_id_match(run_id: Option<&str>, path: &Path) -> bool {
+    run_id
+        .map(|value| path.to_string_lossy().contains(value))
+        .unwrap_or(false)
+}
+
+fn path_match(expected: Option<&Path>, actual: &Path) -> bool {
+    expected == Some(actual)
 }
 
 pub fn default_prompt(kind: LaunchKind) -> String {

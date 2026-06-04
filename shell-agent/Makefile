@@ -3,7 +3,12 @@
 
 export MACOSX_DEPLOYMENT_TARGET ?= 14.0
 
-.PHONY: bindings xcode app dmg dmg-signed
+.PHONY: help bindings xcode app app-debug dmg dmg-signed
+
+HELP_C_CYAN   := \033[36m
+HELP_C_GREEN  := \033[32m
+HELP_C_YELLOW := \033[33m
+HELP_C_RESET  := \033[0m
 
 bindings:
 	@echo "Building vibecrafted-shell-ffi (release)..."
@@ -45,8 +50,19 @@ app-debug: bindings xcode
 	if [ -n "$$BUILT_APP" ]; then \
 		cp ../target/release/rust-mux "$$BUILT_APP/Contents/MacOS/vc-mux-daemon"; \
 		cp ../target/release/vc-mux-tray "$$BUILT_APP/Contents/MacOS/vc-mux-tray"; \
-		cp ../target/release/vc-operator "$$BUILT_APP/Contents/MacOS/vc-operator-tui"; \
+		cp ../target/release/vc-tui "$$BUILT_APP/Contents/MacOS/vc-tui"; \
 		chmod +x "$$BUILT_APP/Contents/MacOS/"*; \
 		./scripts/fix-dylib-install-names.sh "$$BUILT_APP"; \
 		codesign --force --deep --sign - "$$BUILT_APP"; \
 	fi
+
+help:
+	@printf "\n$(HELP_C_CYAN)shell-agent$(HELP_C_RESET) - UniFFI bridge + SwiftUI app\n\n"
+	@printf "  $(HELP_C_YELLOW)BUILD$(HELP_C_RESET)\n"
+	@printf "    $(HELP_C_GREEN)%-14s$(HELP_C_RESET) %s\n" "bindings" "Build Rust FFI and generate Swift bindings"
+	@printf "    $(HELP_C_GREEN)%-14s$(HELP_C_RESET) %s\n" "xcode" "Generate app/Vibecrafted.xcodeproj"
+	@printf "    $(HELP_C_GREEN)%-14s$(HELP_C_RESET) %s\n" "app" "Build and ad-hoc codesign Vibecrafted.app"
+	@printf "    $(HELP_C_GREEN)%-14s$(HELP_C_RESET) %s\n" "app-debug" "Build app with release daemon binaries copied in"
+	@printf "\n  $(HELP_C_YELLOW)PACKAGE$(HELP_C_RESET)\n"
+	@printf "    $(HELP_C_GREEN)%-14s$(HELP_C_RESET) %s\n" "dmg" "Build unsigned/ad-hoc DMG"
+	@printf "    $(HELP_C_GREEN)%-14s$(HELP_C_RESET) %s\n" "dmg-signed" "Build signed DMG"

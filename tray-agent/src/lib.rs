@@ -79,6 +79,7 @@ pub fn run_with_ipc(socket_path: PathBuf) -> Result<()> {
         }
         if last_menu_refresh.elapsed() >= Duration::from_secs(2) {
             menu::update_service_count_label();
+            menu::update_recent_runs_menu();
             menu::update_onboarding_item();
             last_menu_refresh = Instant::now();
         }
