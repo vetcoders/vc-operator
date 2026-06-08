@@ -1,4 +1,4 @@
-//! # rust_mux - MCP Server Multiplexer
+//! # rmcp_mux - MCP Server Multiplexer
 //!
 //! A library for multiplexing MCP (Model Context Protocol) servers, allowing
 //! a single server process to serve multiple clients via Unix sockets.
@@ -14,7 +14,7 @@
 //! ## Usage as Library
 //!
 //! ```rust,no_run
-//! use rust_mux::{MuxConfig, run_mux_server};
+//! use rmcp_mux::{MuxConfig, run_mux_server};
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -30,7 +30,7 @@
 //! ## Usage with Multiple Mux Instances
 //!
 //! ```rust,no_run
-//! use rust_mux::{MuxConfig, spawn_mux_server, MuxHandle};
+//! use rmcp_mux::{MuxConfig, spawn_mux_server, MuxHandle};
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -105,12 +105,12 @@ pub use multi_tui::run_multi_tui;
 // Library-first configuration builder
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Configuration for embedding rust_mux in your application.
+/// Configuration for embedding rmcp_mux in your application.
 ///
 /// Use the builder pattern to configure the mux server:
 ///
 /// ```rust
-/// use rust_mux::MuxConfig;
+/// use rmcp_mux::MuxConfig;
 /// use std::time::Duration;
 ///
 /// let config = MuxConfig::new("/tmp/my-mcp.sock", "npx")
@@ -305,7 +305,7 @@ impl MuxConfig {
             self.socket
                 .file_name()
                 .and_then(|n| n.to_string_lossy().split('.').next().map(|s| s.to_string()))
-                .unwrap_or_else(|| "rust_mux".to_string())
+                .unwrap_or_else(|| "rmcp_mux".to_string())
         })
     }
 }
@@ -349,7 +349,7 @@ impl From<MuxConfig> for ResolvedParams {
 ///
 /// # Example
 /// ```rust,no_run
-/// use rust_mux::{MuxConfig, run_mux_server};
+/// use rmcp_mux::{MuxConfig, run_mux_server};
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -395,7 +395,7 @@ impl MuxHandle {
 ///
 /// # Example
 /// ```rust,no_run
-/// use rust_mux::{MuxConfig, spawn_mux_server};
+/// use rmcp_mux::{MuxConfig, spawn_mux_server};
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -484,7 +484,7 @@ pub const NAME: &str = env!("CARGO_PKG_NAME");
 /// Spawns a mux server for each set of parameters and waits for shutdown signal.
 /// Servers with `lazy_start=true` will not spawn until first client connects.
 /// Also starts a status socket listener at [`DEFAULT_STATUS_SOCKET`] for
-/// daemon-wide status monitoring via `rust_mux daemon-status`.
+/// daemon-wide status monitoring via `rmcp_mux daemon-status`.
 pub async fn run_mux_multi(
     params_list: Vec<ResolvedParams>,
     shutdown: CancellationToken,

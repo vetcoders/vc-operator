@@ -71,7 +71,7 @@ pub fn handle_menu_event(event_id: &MenuId, menu_ids: &MenuIds, socket_path: &Pa
         }
         Some(MenuRoute::OpenLogs) => {
             send_menu_event(TrayMenuEvent::OpenMuxLogs);
-            let path = home_path(".rust-mux/logs");
+            let path = home_path(".rmcp-mux/logs");
             let _ = std::fs::create_dir_all(&path);
             let _ = Command::new("open").arg(&path).spawn();
         }

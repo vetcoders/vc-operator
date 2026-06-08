@@ -12,7 +12,7 @@ const MAX_CONCURRENT: usize = 32;
 pub fn socket_path() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
     PathBuf::from(home)
-        .join(".rust-mux")
+        .join(".rmcp-mux")
         .join("ipc")
         .join("control.sock")
 }
