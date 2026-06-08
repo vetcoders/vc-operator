@@ -13,22 +13,22 @@ use std::ffi::OsString;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-fn get_message(e: &vc_tui::LaunchRunError) -> String {
-    if let vc_tui::LaunchRunError::Exec { message, .. } = e {
+fn get_message(e: &voc::LaunchRunError) -> String {
+    if let voc::LaunchRunError::Exec { message, .. } = e {
         message.clone()
     } else {
         panic!()
     }
 }
-fn get_probe_error(e: &vc_tui::LaunchRunError) -> Option<String> {
-    if let vc_tui::LaunchRunError::Exec { probe_error, .. } = e {
+fn get_probe_error(e: &voc::LaunchRunError) -> Option<String> {
+    if let voc::LaunchRunError::Exec { probe_error, .. } = e {
         probe_error.clone()
     } else {
         panic!()
     }
 }
-fn get_probe_error_at_deadline(e: &vc_tui::LaunchRunError) -> Option<String> {
-    if let vc_tui::LaunchRunError::Exec {
+fn get_probe_error_at_deadline(e: &voc::LaunchRunError) -> Option<String> {
+    if let voc::LaunchRunError::Exec {
         probe_error_at_deadline,
         ..
     } = e
@@ -42,8 +42,8 @@ fn get_probe_error_at_deadline(e: &vc_tui::LaunchRunError) -> Option<String> {
 use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
-use vc_tui::launch::LaunchCommand;
-use vc_tui::{READINESS_DEADLINE, wait_for_interactive_launch};
+use voc::launch::LaunchCommand;
+use voc::{READINESS_DEADLINE, wait_for_interactive_launch};
 
 static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
 fn env_guard() -> std::sync::MutexGuard<'static, ()> {
@@ -295,7 +295,7 @@ fn pre_launch_verify_passes_on_clean_config() {
         }
     });
 
-    let res = vc_tui::launch::pre_launch_verify(rmcp_mux::ipc::ClientKind::Codex);
+    let res = voc::launch::pre_launch_verify(rmcp_mux::ipc::ClientKind::Codex);
     assert!(res.is_ok(), "Verify should pass");
 }
 
@@ -335,10 +335,10 @@ fn pre_launch_verify_blocks_dispatch_on_drift() {
         }
     });
 
-    let res = vc_tui::launch::pre_launch_verify(rmcp_mux::ipc::ClientKind::Codex);
+    let res = voc::launch::pre_launch_verify(rmcp_mux::ipc::ClientKind::Codex);
     let err = res.expect_err("Should block dispatch");
     match err {
-        vc_tui::launch::VerifyHalt::Drift(servers) => {
+        voc::launch::VerifyHalt::Drift(servers) => {
             assert_eq!(servers.len(), 1);
             assert_eq!(servers[0].client, "codex");
         }
@@ -354,7 +354,7 @@ fn pre_launch_verify_falls_back_to_polling_when_socket_down() {
         std::env::set_var("HOME", dir.path());
     }
     // Socket doesn't exist. Should return Ok(()).
-    let res = vc_tui::launch::pre_launch_verify(rmcp_mux::ipc::ClientKind::Codex);
+    let res = voc::launch::pre_launch_verify(rmcp_mux::ipc::ClientKind::Codex);
     assert!(
         res.is_ok(),
         "Verify should fall back gracefully if socket is down"
@@ -363,13 +363,13 @@ fn pre_launch_verify_falls_back_to_polling_when_socket_down() {
 
 #[test]
 fn client_drift_overlay_carries_non_mux_paths_to_fix_action() {
-    let halt = vc_tui::launch::VerifyHalt::Drift(vec![rmcp_mux::ipc::command::NonMuxEntry {
+    let halt = voc::launch::VerifyHalt::Drift(vec![rmcp_mux::ipc::command::NonMuxEntry {
         client: "claude".into(),
         path: "/Users/x/.claude/config.toml".into(),
         line: 42,
         server_name: "claude".into(),
     }]);
-    let err = vc_tui::LaunchRunError::ClientDrift(halt);
+    let err = voc::LaunchRunError::ClientDrift(halt);
     let details = err.detail_lines("".into());
     assert!(
         details

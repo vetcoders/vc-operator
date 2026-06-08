@@ -4230,23 +4230,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
-name = "vc-tui"
-version = "0.1.1"
-dependencies = [
- "anyhow",
- "arboard",
- "chrono",
- "crossterm",
- "notify",
- "ratatui",
- "rmcp-mux",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
-]
-
-[[package]]
 name = "version-compare"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4269,7 +4252,7 @@ dependencies = [
  "tokio",
  "tray-agent",
  "uniffi",
- "vc-tui",
+ "voc",
 ]
 
 [[package]]
@@ -4277,6 +4260,23 @@ name = "vibecrafted-uniffi-bindgen"
 version = "0.2.1"
 dependencies = [
  "uniffi",
+]
+
+[[package]]
+name = "voc"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "arboard",
+ "chrono",
+ "crossterm",
+ "notify",
+ "ratatui",
+ "rmcp-mux",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

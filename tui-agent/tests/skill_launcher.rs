@@ -4,8 +4,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use tempfile::tempdir;
-use vc_tui::polarize::{PolarizeBand, current_intents_from_home, read_intent};
-use vc_tui::skills_catalog::{CATALOG, SkillAgent, SkillPayload, build_skill_launch_command};
+use voc::polarize::{PolarizeBand, current_intents_from_home, read_intent};
+use voc::skills_catalog::{CATALOG, SkillAgent, SkillPayload, build_skill_launch_command};
 
 #[cfg(unix)]
 use std::os::unix::fs::symlink;

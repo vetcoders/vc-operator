@@ -3,9 +3,9 @@ uniffi::setup_scaffolding!();
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use tray_agent::ipc_client::{ClientKind, MuxControlCommand, MuxControlResponse, send_command};
-use vc_tui::config::{default_state_root, default_vibecrafted_home};
-use vc_tui::mission_control::{self as mc, MissionControlState};
-use vc_tui::state::ControlPlaneState;
+use voc::config::{default_state_root, default_vibecrafted_home};
+use voc::mission_control::{self as mc, MissionControlState};
+use voc::state::ControlPlaneState;
 
 static SOCKET_PATH: OnceLock<PathBuf> = OnceLock::new();
 
@@ -101,7 +101,7 @@ pub enum FfiSubscriberState {
 //
 // Cross-surface contract that lets shell-side (Swift) read the same
 // dashboard truth the TUI Mission Control tab renders. Records mirror
-// `vc_tui::mission_control::*` without duplicating the
+// `voc::mission_control::*` without duplicating the
 // aggregation logic — see `load_mission_control_snapshot()` for the
 // single typed boundary.
 // ═══════════════════════════════════════════════════════════
