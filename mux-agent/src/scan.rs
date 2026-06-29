@@ -568,7 +568,7 @@ impl DiscoveredMcp {
 
 pub fn discover_vibecrafted_mcp() -> Option<DiscoveredMcp> {
     discover_vibecrafted_mcp_with(
-        &expand_path("~/Libraxis/vibecrafted/vibecrafted-mcp"),
+        &expand_path("~/vibecrafted/vibecrafted-mcp"),
         vibecrafted_mcp_pip_show,
     )
 }
