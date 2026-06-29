@@ -126,7 +126,7 @@ lazy_start = true
 socket = "~/.rmcp-servers/sockets/rmcp-memex.sock"
 cmd = "/path/to/rmcp-memex"
 args = ["serve", "--config", "config.toml", "--db-path", "~/.ai-memories/lancedb"]
-env = { SLED_PATH = "~/.rmcp-servers/sled/memex" }
+env = { SLED_PATH = "~/.rmcp-servers/sled/db" }
 max_request_bytes = 1048576
 request_timeout_ms = 30000
 restart_backoff_ms = 1000
