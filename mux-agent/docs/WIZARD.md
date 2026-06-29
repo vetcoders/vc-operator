@@ -84,7 +84,7 @@ automatically.
 │   [x] brave-search                     │ │   Total entries  : 15        │
 │   [x] loctree-mcp                      │ │   Unique names   : 9         │
 │   [x] context7                         │ │   Sources scanned: 3         │
-│   [x] memex                            │ │                              │
+│   [x] rmcp-memex                       │ │                              │
 │ ─ codex                                │ │ Keys                         │
 │   [x] playwright                       │ │   Up/Down  navigate          │
 │   [x] chrome-devtools (pid 21470)      │ │   Space    toggle            │
@@ -308,11 +308,9 @@ and ignored by the 5-step flow.
 ## See also
 
 - `docs/integration.md` — library use of `MuxConfig` / `spawn_mux_server`.
-- `docs/vc-agents-client-discovery-plan.md` — original plan for the
-  multi-client discovery layer this wizard now consumes.
 - `AGENTS.md` — repo-wide doctrine, including the
   wizard's Unified / Per-client / Auto-rewire split.
 
 ---
 
-_𝚅𝚒𝚋𝚎𝚌𝚛𝚊𝚏𝚝𝚎𝚍. with AI Agents by VetCoders (c)2024-2026 LibraxisAI_
+_𝚅𝚒𝚋𝚎𝚌𝚛𝚊𝚏𝚝𝚎𝚍. with AI Agents by Vetcoders (c)2024-2026_

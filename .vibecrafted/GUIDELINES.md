@@ -1,4 +1,4 @@
-# Vibecrafted Operator Workspace — VetCoders GUIDELINES
+# Vibecrafted Operator Workspace — Vetcoders GUIDELINES
 
 > Per-workspace, agent-agnostic instructions for `operator/`. Same rules for
 > Claude, Codex, Gemini, Junie, and Qwen. Global doctrine still applies; this
@@ -6,7 +6,7 @@
 
 ## Identity
 
-- **Workspace:** standalone `VetCoders/vc-operator` checkout.
+- **Workspace:** standalone `vetcoders/vc-operator` checkout.
 - **Role:** consolidated operator platform workspace for `mux-agent`,
   `tui-agent`, `tray-agent`, and `shell-agent`.
 - **Crate names:** keep existing distribution names stable. `mux-agent/`
@@ -41,7 +41,7 @@ This workspace is a shared live tree. Concurrent edits are expected.
 - If a concurrent edit conflicts with the T0 contract, preserve evidence,
   reconcile the file, and report exactly what happened.
 - `.vibecrafted/{plans,reports}` are daily symlinks into
-  `$VIBECRAFTED_HOME/artifacts/VetCoders/vibecrafted-operator/<YYYY_MMDD>/`.
+  `$VIBECRAFTED_HOME/artifacts/vetcoders/vibecrafted-operator/<YYYY_MMDD>/`.
   Date-rotation drift is not product code.
 
 ## Wizard / Config Doctrine
@@ -86,7 +86,7 @@ Forbidden: vendor footers, personal signatures, and
 Use the canonical brand line only when a sigblock is needed:
 
 ```text
-𝚅𝚒𝚋𝚎𝚌𝚛𝚊𝚏𝚝𝚎𝚍. with AI Agents by VetCoders (c)2024-2026 LibraxisAI
+𝚅𝚒𝚋𝚎𝚌𝚛𝚊𝚏𝚝𝚎𝚍. with AI Agents by Vetcoders (c)2024-2026
 ```
 
 ## Anti-Patterns Repo-Specific
@@ -102,4 +102,4 @@ Use the canonical brand line only when a sigblock is needed:
 
 ---
 
-_𝚅𝚒𝚋𝚎𝚌𝚛𝚊𝚏𝚝𝚎𝚍. with AI Agents by VetCoders (c)2024-2026 LibraxisAI_
+_𝚅𝚒𝚋𝚎𝚌𝚛𝚊𝚏𝚝𝚎𝚍. with AI Agents by Vetcoders (c)2024-2026_
