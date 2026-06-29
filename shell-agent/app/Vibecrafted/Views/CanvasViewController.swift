@@ -1,5 +1,5 @@
 // Vibecrafted — Canvas View (Routing Matrix / Log Tail)
-// Created by VetCoders
+// Created by Vetcoders
 
 import AppKit
 

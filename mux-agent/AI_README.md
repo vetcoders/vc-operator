@@ -205,7 +205,7 @@ Navigation: `Up/Down` choose, `Space` toggle, `Enter` / `n` next step, `p` previ
 
 Source of truth is **client configs**, not running processes. ps-scan is used as enrichment to stamp PIDs and surface running orphans, never as the discovery driver.
 
-Detail: `docs/WIZARD.md`, `docs/vc-agents-client-discovery-plan.md`.
+Detail: `docs/WIZARD.md`.
 
 ## Status Snapshots
 

@@ -93,7 +93,7 @@ pub fn handle_menu_event(event_id: &MenuId, menu_ids: &MenuIds, socket_path: &Pa
         Some(MenuRoute::Help) => {
             send_menu_event(TrayMenuEvent::OpenHelp);
             let _ = Command::new("open")
-                .arg("https://github.com/VetCoders/vibecrafted#readme")
+                .arg("https://github.com/vetcoders/vibecrafted#readme")
                 .spawn();
         }
         Some(MenuRoute::About) => {
@@ -214,12 +214,12 @@ mod tests {
             help: MenuId::new("help"),
             about: MenuId::new("about"),
             quit: MenuId::new("quit"),
-            restart_services: vec![("memex".to_string(), MenuId::new("restart-memex"))],
+            restart_services: vec![("example".to_string(), MenuId::new("restart-example"))],
             verify_clients: vec![(ClientKind::Claude, MenuId::new("verify-claude"))],
         };
         assert_eq!(
-            resolve_menu_route(&MenuId::new("restart-memex"), &ids),
-            Some(MenuRoute::RestartService("memex".to_string()))
+            resolve_menu_route(&MenuId::new("restart-example"), &ids),
+            Some(MenuRoute::RestartService("example".to_string()))
         );
         assert_eq!(
             resolve_menu_route(&MenuId::new("verify-claude"), &ids),

@@ -1,5 +1,5 @@
 # shell-agent - UniFFI bridge + SwiftUI app
-# Created by VetCoders (c)2026 LibraxisAI
+# Created by Vetcoders (c)2026
 
 export MACOSX_DEPLOYMENT_TARGET ?= 14.0
 
@@ -36,7 +36,7 @@ dmg:
 	@./scripts/build-dmg.sh
 
 dmg-signed:
-	@SIGNING_IDENTITY="Developer ID Application: Maciej Gad (MW223P3NPX)" ./scripts/build-dmg.sh
+	@SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./scripts/build-dmg.sh
 
 app-debug: bindings xcode
 	@cargo build --workspace --release

@@ -1,5 +1,5 @@
 // Vibecrafted — Inspector
-// Created by VetCoders
+// Created by Vetcoders
 
 import AppKit
 
